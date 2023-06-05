@@ -5,20 +5,20 @@ import (
 )
 
 type FixedHeader struct {
-	messageType byte		
-	dup bool				// duplicate delivery flag
-	qos byte				// quality of service
-	retain bool				// retain flah
-	remaingLength uint32	// remaining length including data in the variable header and the payload.
+	MessageType byte		
+	Dup bool				// duplicate delivery flag
+	Qos byte				// quality of service
+	Retain bool				// retain flag
+	RemaingLength uint32	// remaining length including data in the variable header and the payload.
 }
 
-func DecodeFixedHeader(buf []byte) *FixedHeader{
+func DecodeFixedHeader(buf []byte) *FixedHeader {
 	fixedHeader := &FixedHeader{}
-	fixedHeader.messageType = buf[0] >> 4
-	fixedHeader.dup = buf[0] & 0x08 == 0x08
-	fixedHeader.qos = buf[0] & 0x06 >> 1
-	fixedHeader.retain = buf[0] & 0x01 == 0x01
-	fixedHeader.remaingLength = decodeRemainingLength(buf[1:])
+	fixedHeader.MessageType = buf[0] >> 4
+	fixedHeader.Dup = buf[0] & 0x08 == 0x08
+	fixedHeader.Qos = buf[0] & 0x06 >> 1
+	fixedHeader.Retain = buf[0] & 0x01 == 0x01
+	fixedHeader.RemaingLength = decodeRemainingLength(buf[1:])
 	return fixedHeader
 }
 
@@ -43,5 +43,5 @@ func (f *FixedHeader) String() string {
 	QoS: %d
 	Retain: %t
 	Remaining length: %d`,
-	f.messageType, f.dup, f.qos, f.retain, f.remaingLength)
+	f.MessageType, f.Dup, f.Qos, f.Retain, f.RemaingLength)
 }

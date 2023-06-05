@@ -1,87 +1,102 @@
 package packets
 
-import (
-	"fmt"
-)
+import "net"
 
 const UTF8BytesLength = 2
 
 type ConnectFlags struct {
 	usernameFlag bool
 	passwordFlag bool
-	willRetain bool
-	willQoS byte
-	willFlag bool
+	willRetain   bool
+	willQoS      byte
+	willFlag     bool
 	cleanSession bool
-	keepalive uint16
+	keepalive    uint16
 }
 
 type ConnectOptions struct {
-	ConnectFlags *ConnectFlags
-	clientID string
-	willTopic string
-	willMessage string
-	username string
-	password string
+	ProtocolLevel byte
+	ClientID      string
+	Username      string
+	Password      string
+	WillTopic     string
+	WillMessage   string
+	WillRetain    bool
+	WillQoS       byte
+	CleanSession  bool
+	Keepalive     uint16
 }
 
-func ParseConnect(packet []byte) *ConnectOptions {
-	fh := DecodeFixedHeader(packet)
+type ErrWrongProtocolName struct{}
 
-	if fh.messageType != CONNECT {
+func (e *ErrWrongProtocolName) Error() string {
+	return "Wrong message type"
+}
+
+func DecodeConnect(conn net.Conn) (*ConnectOptions, error) {
+	buffer := make([]byte, 256)
+	_, err := conn.Read(buffer)
+	if err != nil {
+		return nil, err
+	}
+
+	fh := DecodeFixedHeader(buffer)
+
+	if fh.MessageType != CONNECT {
 		// TODO: send connack packet with the proper fail return code
-		panic("Wrong message type")
+		return nil, &ErrWrongProtocolName{}
 	}
 
-	if protocolName, _ := DecodeUTF8String(packet[2:]); protocolName != "MQTT" {
-		// TODO: disconnect client
-		fmt.Println(protocolName)
-		panic("Wrong protocol name")
+	if protocolName, _ := DecodeUTF8String(buffer[2:]); protocolName != "MQTT" {
+		return nil, &ErrWrongProtocolName{}
 	}
 
-	protocolLevel := packet[8]
-
-	if protocolLevel != 4 {
-		// TODO send connack packet with the proper fail return code
-		fmt.Println(protocolLevel)
-		panic("Wrong protocol level")
+	flagByte := buffer[9]
+	if flagByte & 0x1 != 0 {
+		return nil, &ErrWrongProtocolName{}
 	}
 
-	cf := parseFlags(packet[9])
-	cf.keepalive = uint16(packet[10]) << 8 | uint16(packet[11])
-	return parseConnectOptions(cf, packet[12:])
+	cf := DecodeConnectFlags(flagByte)
+	cf.keepalive = uint16(buffer[10])<<8 | uint16(buffer[11])
 
+	co := DecodeConnectOptions(cf, buffer[12:])
+	co.ProtocolLevel = buffer[8]
+	return co, nil
 }
 
-func parseFlags(flags byte) *ConnectFlags {
+func DecodeConnectFlags(flags byte) *ConnectFlags {
 	cf := &ConnectFlags{}
-	cf.usernameFlag = flags & 0x80 != 0
-	cf.passwordFlag = flags & 0x40 != 0
-	cf.willRetain = flags & 0x20 != 0
+	cf.usernameFlag = flags&0x80 != 0
+	cf.passwordFlag = flags&0x40 != 0
+	cf.willRetain = flags&0x20 != 0
 	cf.willQoS = (flags & 0x18) >> 3
-	cf.willFlag = flags & 0x04 != 0
-	cf.cleanSession = flags & 0x02 != 0
+	cf.willFlag = flags&0x04 != 0
+	cf.cleanSession = flags&0x02 != 0
 	return cf
 }
 
-func parseConnectOptions(cf *ConnectFlags, packet []byte) *ConnectOptions {
+// DecodeConnectOptions reads the payload of the connect packet
+func DecodeConnectOptions(cf *ConnectFlags, buffer []byte) *ConnectOptions {
 	copts := &ConnectOptions{
-		ConnectFlags: cf,
+		CleanSession: cf.cleanSession,
+		Keepalive:    cf.keepalive,
 	}
 
-	copts.clientID, packet = DecodeUTF8StringInc(packet)
+	copts.ClientID, buffer = DecodeUTF8StringInc(buffer)
 
 	if cf.willFlag {
-		copts.willTopic, packet = DecodeUTF8StringInc(packet)
-		copts.willMessage, packet = DecodeUTF8StringInc(packet)
+		copts.WillTopic, buffer = DecodeUTF8StringInc(buffer)
+		copts.WillMessage, buffer = DecodeUTF8StringInc(buffer)
+		copts.WillQoS = cf.willQoS
+		copts.WillRetain = cf.willRetain
 	}
 
 	if cf.usernameFlag {
-		copts.username, packet = DecodeUTF8StringInc(packet)
+		copts.Username, buffer = DecodeUTF8StringInc(buffer)
 	}
 
 	if cf.passwordFlag {
-		copts.password, _ = DecodeUTF8StringInc(packet)
+		copts.Password, _ = DecodeUTF8StringInc(buffer)
 	}
 
 	if cf.passwordFlag && !cf.usernameFlag {

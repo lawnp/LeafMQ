@@ -4,10 +4,9 @@ func Decode(buf []byte) *Packet {
 	packet := &Packet{}
 	packet.fixedHeader = DecodeFixedHeader(buf)
 
-	switch packet.fixedHeader.messageType {
+	switch packet.fixedHeader.MessageType {
 		case CONNECT:
 	}
-	packet.variableHeader = nil
 	packet.payload = nil
 	return packet
 }

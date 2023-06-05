@@ -1,14 +1,14 @@
 package packets
 
 const (
-	RESERVED       byte = iota // 0 - we use this in packet tests to indicate special-test or all packets.
+	RESERVED       byte = iota // 0
 	CONNECT                    // 1
-	CONNACT                    // 2
+	CONNACK                   // 2
 )
 
 type Packet struct {
 	fixedHeader *FixedHeader
-	variableHeader *VariableHeader
+	ConnectOptions *ConnectOptions
 	payload []byte
 }
 
@@ -16,4 +16,23 @@ func (p *Packet) String() string {
 	return p.fixedHeader.String()
 }
 
-type VariableHeader struct {}
+func ParsePacket(buffer []byte) *Packet {
+	packet := new(Packet)
+	var err error	
+
+	switch packet.fixedHeader.MessageType {
+	case CONNECT:
+		
+	}
+
+	if err != nil {
+		panic(err)
+	}
+	return packet
+}
+
+func (p *Packet) ParseFixedHeader(buffer []byte) {
+	p.fixedHeader = DecodeFixedHeader(buffer)
+}
+
+
