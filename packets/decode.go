@@ -1,16 +1,5 @@
 package packets
 
-func Decode(buf []byte) *Packet {
-	packet := &Packet{}
-	packet.fixedHeader = DecodeFixedHeader(buf)
-
-	switch packet.fixedHeader.MessageType {
-		case CONNECT:
-	}
-	packet.payload = nil
-	return packet
-}
-
 func DecodeUTF8String(buf []byte) (string, uint16) {
 	// first two bytes are the length of the string
 	length := uint16(buf[0]) << 8 | uint16(buf[1])

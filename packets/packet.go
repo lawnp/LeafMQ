@@ -1,5 +1,10 @@
 package packets
 
+import (
+	"fmt"
+	"net"
+)
+
 const (
 	RESERVED       byte = iota // 0
 	CONNECT                    // 1
@@ -9,30 +14,32 @@ const (
 type Packet struct {
 	fixedHeader *FixedHeader
 	ConnectOptions *ConnectOptions
-	payload []byte
+	// payload []byte
 }
 
 func (p *Packet) String() string {
 	return p.fixedHeader.String()
 }
 
-func ParsePacket(buffer []byte) *Packet {
+func ParsePacket(fh *FixedHeader, conn net.Conn) (*Packet, error) {
 	packet := new(Packet)
+	packet.fixedHeader = fh
 	var err error	
 
+	buf := make([]byte, fh.RemainingLength)
+	n, err := conn.Read(buf)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Read", n, "bytes")
 	switch packet.fixedHeader.MessageType {
 	case CONNECT:
-		
+		packet.ConnectOptions, err = DecodeConnect(buf)
 	}
 
 	if err != nil {
 		panic(err)
 	}
-	return packet
+	return packet, err
 }
-
-func (p *Packet) ParseFixedHeader(buffer []byte) {
-	p.fixedHeader = DecodeFixedHeader(buffer)
-}
-
-

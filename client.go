@@ -9,7 +9,7 @@ import (
 
 type Client struct {
 	Propreties *Propreties
-	conn net.Conn
+	Conn net.Conn
 }
 
 type Propreties struct {
@@ -27,7 +27,7 @@ type Propreties struct {
 
 func NewClient(conn net.Conn) *Client {
 	return &Client{
-		conn: conn,
+		Conn: conn,
 	}
 }
 
@@ -36,16 +36,16 @@ func (c *Client) GenerateClientID() {
 }
 
 func (c *Client) Send(buffer []byte) {
-	c.conn.Write(buffer)
+	c.Conn.Write(buffer)
 }
 
 func (c *Client) Close() {
-	c.conn.Close()
+	c.Conn.Close()
 }
 
-func (c *Client) EstablishConnection() error {
-	connectionOptions, err := packets.DecodeConnect(c.conn)
+func (c *Client) ReadPackets() {}
 
+func (c *Client) SetClientPropreties(connectionOptions *packets.ConnectOptions){
 	c.Propreties = &Propreties{
 		ProtocolLevel: connectionOptions.ProtocolLevel,
 		ClientID:      connectionOptions.ClientID,
@@ -58,8 +58,6 @@ func (c *Client) EstablishConnection() error {
 		CleanSession:  connectionOptions.CleanSession,
 		Keepalive:     connectionOptions.Keepalive,
 	}
-
-	return err	
 }
 
 func (c *Client) ValidateConnectionOptions() packets.Code {

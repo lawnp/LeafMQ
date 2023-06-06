@@ -65,11 +65,13 @@ func (b *Broker) BindClient(conn net.Conn) {
 	client := NewClient(conn)
 	defer client.Close()
 
-	err := client.EstablishConnection()
+	connectPacket, err := b.ReadConnect(client)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	// set client properties
+	client.SetClientPropreties(connectPacket.ConnectOptions)
 
 	code := client.ValidateConnectionOptions()
 	b.Log.Println("Validated connections options with:", code.Reason)
@@ -80,7 +82,19 @@ func (b *Broker) BindClient(conn net.Conn) {
 	}
 
 	b.AddClient(client)
-	for {}
+	client.ReadPackets()
+}
+
+func (b *Broker) ReadConnect(client *Client) (*packets.Packet, error) {
+	fixedHeader := packets.DecodeFixedHeader(client.Conn)
+
+	if fixedHeader.MessageType != packets.CONNECT {
+		return nil, fmt.Errorf("Expected CONNECT packet, got %v", fixedHeader.MessageType)
+	}
+
+	connect, err := packets.ParsePacket(fixedHeader, client.Conn)
+	b.Log.Println("Received CONNECT packet")
+	return connect, err
 }
 
 func (b *Broker) sendConnack(client *Client, code packets.Code) {

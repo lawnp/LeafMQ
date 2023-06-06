@@ -1,6 +1,5 @@
 package packets
 
-import "net"
 
 const UTF8BytesLength = 2
 
@@ -33,34 +32,22 @@ func (e *ErrWrongProtocolName) Error() string {
 	return "Wrong message type"
 }
 
-func DecodeConnect(conn net.Conn) (*ConnectOptions, error) {
-	buffer := make([]byte, 256)
-	_, err := conn.Read(buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	fh := DecodeFixedHeader(buffer)
-
-	if fh.MessageType != CONNECT {
-		// TODO: send connack packet with the proper fail return code
+func DecodeConnect(buffer[] byte) (*ConnectOptions, error) {
+	
+	if protocolName, _ := DecodeUTF8String(buffer[0:]); protocolName != "MQTT" {
 		return nil, &ErrWrongProtocolName{}
 	}
 
-	if protocolName, _ := DecodeUTF8String(buffer[2:]); protocolName != "MQTT" {
-		return nil, &ErrWrongProtocolName{}
-	}
-
-	flagByte := buffer[9]
+	flagByte := buffer[7]
 	if flagByte & 0x1 != 0 {
 		return nil, &ErrWrongProtocolName{}
 	}
 
 	cf := DecodeConnectFlags(flagByte)
-	cf.keepalive = uint16(buffer[10])<<8 | uint16(buffer[11])
+	cf.keepalive = uint16(buffer[8])<<8 | uint16(buffer[9])
 
-	co := DecodeConnectOptions(cf, buffer[12:])
-	co.ProtocolLevel = buffer[8]
+	co := DecodeConnectOptions(cf, buffer[10:])
+	co.ProtocolLevel = buffer[6]
 	return co, nil
 }
 
