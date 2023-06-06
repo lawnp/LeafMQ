@@ -31,6 +31,10 @@ func NewClient(conn net.Conn) *Client {
 	}
 }
 
+func (c *Client) GenerateClientID() {
+	c.Propreties.ClientID = "PLACEHOLDER_FOR_GENERATED_CLIENT_ID"
+}
+
 func (c *Client) Send(buffer []byte) {
 	c.conn.Write(buffer)
 }
