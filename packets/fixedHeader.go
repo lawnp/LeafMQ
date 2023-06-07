@@ -13,12 +13,12 @@ type FixedHeader struct {
 	RemainingLength uint32 // remaining length including data in the variable header and the payload.
 }
 
-func DecodeFixedHeader(conn net.Conn) *FixedHeader {
+func DecodeFixedHeader(conn net.Conn) (*FixedHeader, error) {
 	buf := make([]byte, 1)
 	n, err := conn.Read(buf)
 
 	if err != nil {
-		fmt.Println("Error reading fixed header:", err)
+		return nil, err
 	}
 	fmt.Println("Read", n, "bytes from fixed header")
 	fixedHeader := &FixedHeader{}
@@ -27,7 +27,7 @@ func DecodeFixedHeader(conn net.Conn) *FixedHeader {
 	fixedHeader.Qos = buf[0] & 0x06 >> 1
 	fixedHeader.Retain = buf[0]&0x01 == 0x01
 	fixedHeader.RemainingLength = decodeRemainingLength(conn)
-	return fixedHeader
+	return fixedHeader, nil
 }
 
 // decodes the remaining length from the fixed header

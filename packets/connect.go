@@ -1,6 +1,5 @@
 package packets
 
-
 const UTF8BytesLength = 2
 
 type ConnectFlags struct {

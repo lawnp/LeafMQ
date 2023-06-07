@@ -67,7 +67,7 @@ func (b *Broker) BindClient(conn net.Conn) {
 
 	connectPacket, err := b.ReadConnect(client)
 	if err != nil {
-		fmt.Println(err)
+		b.Log.Println("Error when trying to establish connection:", err)
 		return
 	}
 	// set client properties
@@ -82,11 +82,21 @@ func (b *Broker) BindClient(conn net.Conn) {
 	}
 
 	b.AddClient(client)
-	client.ReadPackets()
+	err = client.ReadPackets()
+
+	if err != nil {
+		b.Log.Println("Error Reading connections:", err)
+		client.Close() // mybe not needed just in case
+	}
+
+	b.Log.Println("Client disconnected")
 }
 
 func (b *Broker) ReadConnect(client *Client) (*packets.Packet, error) {
-	fixedHeader := packets.DecodeFixedHeader(client.Conn)
+	fixedHeader, err := packets.DecodeFixedHeader(client.Conn)
+	if err != nil {
+		return nil, err
+	}
 
 	if fixedHeader.MessageType != packets.CONNECT {
 		return nil, fmt.Errorf("Expected CONNECT packet, got %v", fixedHeader.MessageType)
@@ -102,5 +112,6 @@ func (b *Broker) sendConnack(client *Client, code packets.Code) {
 	connack := packets.NewConnack(code, sesionPresent)
 	fmt.Println(connack)
 	b.Log.Println("Sending connack")
+	// TODO check if client is still connected
 	client.Send(connack.Encode())
 }
