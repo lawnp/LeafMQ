@@ -19,6 +19,7 @@ const (
 type Broker struct {
 	listener []*listner.Listener // listener for incoming connections TODO: support multiple listeners
 	clients map[string]*Client
+	Subscriptions map[string][]*Client
 	Log *log.Logger
 }
 
@@ -26,6 +27,7 @@ func New() *Broker {
 	return &Broker{
 		clients: make(map[string]*Client),
 		Log: initiateLog(),
+		Subscriptions: make(map[string][]*Client),
 	}
 }
 
@@ -62,7 +64,7 @@ func (b *Broker) AddClient(client *Client)  {
 
 
 func (b *Broker) BindClient(conn net.Conn) {	
-	client := NewClient(conn)
+	client := NewClient(conn, b)
 	defer client.Close()
 
 	connectPacket, err := b.ReadConnect(client)
@@ -114,4 +116,10 @@ func (b *Broker) sendConnack(client *Client, code packets.Code) {
 	b.Log.Println("Sending connack")
 	// TODO check if client is still connected
 	client.Send(connack.Encode())
+}
+
+func (b *Broker) SendSubscribers(buf []byte, qos byte, topic string) {
+	for _, client := range b.Subscriptions[topic] {
+		client.Send(buf)
+	}
 }

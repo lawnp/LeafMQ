@@ -27,7 +27,10 @@ const (
 type Packet struct {
 	FixedHeader *FixedHeader
 	ConnectOptions *ConnectOptions
-	// payload []byte
+	Subscriptions *Subscribtions
+	PublishTopic string
+	PacketIdentifier uint16
+	Payload []byte
 }
 
 func (p *Packet) String() string {
@@ -48,6 +51,12 @@ func ParsePacket(fh *FixedHeader, conn net.Conn) (*Packet, error) {
 	switch packet.FixedHeader.MessageType {
 	case CONNECT:
 		packet.ConnectOptions, err = DecodeConnect(buf)
+	case SUBSCRIBE:
+		err = packet.DecodeSubscribe(buf)
+	case UNSUBSCRIBE:
+		err = packet.DecodeUnsubscribe(buf)
+	case PUBLISH:
+		err = packet.DecodePublish(buf)
 	case PINGREQ:
 	case DISCONNECT:
 	default:

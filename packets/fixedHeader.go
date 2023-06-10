@@ -13,14 +13,47 @@ type FixedHeader struct {
 	RemainingLength uint32 // remaining length including data in the variable header and the payload.
 }
 
+func (f *FixedHeader) Encode() []byte {
+	buf := make([]byte, 1)
+	buf[0] = f.MessageType << 4
+	if f.Dup {
+		buf[0] |= 0x08
+	}
+	buf[0] |= f.Qos << 1
+	if f.Retain {
+		buf[0] |= 0x01
+	}
+	buf = append(buf, f.encodeRemainingLength()...)
+	return buf
+}
+
+func (f *FixedHeader) encodeRemainingLength() []byte {
+	var encodedByte byte
+	var buffer []byte
+	remainingLength := f.RemainingLength
+
+	for {
+		encodedByte = byte(remainingLength % 128)
+		remainingLength /= 128
+		if remainingLength > 0 {
+			encodedByte |= 128
+		}
+		buffer = append(buffer, encodedByte)
+		if remainingLength == 0 {
+			break
+		}
+	}
+	return buffer
+}
+
 func DecodeFixedHeader(conn net.Conn) (*FixedHeader, error) {
 	buf := make([]byte, 1)
-	n, err := conn.Read(buf)
+	_, err := conn.Read(buf)
 
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Read", n, "bytes from fixed header")
+
 	fixedHeader := &FixedHeader{}
 	fixedHeader.MessageType = buf[0] >> 4
 	fixedHeader.Dup = buf[0]&0x08 == 0x08
@@ -57,12 +90,11 @@ func decodeRemainingLength(conn net.Conn) uint32 {
 
 func decodeByte(conn net.Conn) (byte, error) {
 	buf := make([]byte, 1)
-	n, err := conn.Read(buf)
+	_, err := conn.Read(buf)
 
 	if err != nil {
 		return 0, err
 	}
-	fmt.Println("Read", n, "bytes from byte")
 	return buf[0], nil
 }
 

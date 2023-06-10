@@ -11,6 +11,8 @@ type Client struct {
 	Propreties *Propreties
 	Conn net.Conn
 	isClosed bool
+	Subscriptions map[string]byte
+	Broker *Broker
 }
 
 type Propreties struct {
@@ -26,9 +28,11 @@ type Propreties struct {
 	Keepalive     uint16
 }
 
-func NewClient(conn net.Conn) *Client {
+func NewClient(conn net.Conn, broker *Broker) *Client {
 	return &Client{
 		Conn: conn,
+		Subscriptions: make(map[string]byte),
+		Broker: broker,
 	}
 }
 
@@ -50,6 +54,24 @@ func (c *Client) Close() {
 
 func (c *Client) IsClosed() bool {
 	return c.isClosed
+}
+
+func (c *Client) addSubscription(topic string, qos byte) {
+	c.Subscriptions[topic] = qos
+	c.Broker.Subscriptions[topic] = append(c.Broker.Subscriptions[topic], c)
+}
+
+// this scales very poorly...
+func (c *Client) removeSubscription(topic string) {
+	delete(c.Subscriptions, topic)
+	if clients, ok := c.Broker.Subscriptions[topic]; ok {
+		for i, client := range clients {
+			if client == c {
+				c.Broker.Subscriptions[topic] = append(c.Broker.Subscriptions[topic][:i], c.Broker.Subscriptions[topic][i+1:]...)
+				break
+			}
+		}
+	}
 }
 
 func (c *Client) ReadPackets() error {
@@ -77,6 +99,12 @@ func (c *Client) HandlePacket(packet *packets.Packet) {
 		c.HandleConnect(packet)
 	case packets.DISCONNECT:
 		c.HandleDisconnect(packet)
+	case packets.SUBSCRIBE:
+		c.HandleSubscribe(packet)
+	case packets.UNSUBSCRIBE:
+		c.HandleUnsubscribe(packet)
+	case packets.PUBLISH:
+		c.HandlePublish(packet)
 	case packets.PINGREQ:
 		c.HandlePingreq(packet)
 	
@@ -99,6 +127,32 @@ func (c *Client) HandleDisconnect(packet *packets.Packet) {
 
 func (c *Client) HandlePingreq(packet *packets.Packet) {
 	c.Send(packets.EncodePingresp())
+}
+
+func (c *Client) HandleSubscribe(packet *packets.Packet) {
+	// Subscriptions.Subscriptions... change that in the future please.
+	for t, q := range packet.Subscriptions.Subscriptions {
+		c.addSubscription(t, q)
+	}
+
+	suback := packet.EncodeSuback()
+	c.Send(suback)
+	fmt.Println("Subscribed to", packet.Subscriptions.OrderedSubscriptions)
+}
+
+func (c *Client) HandleUnsubscribe(packet *packets.Packet) {
+	for _, t := range packet.Subscriptions.OrderedSubscriptions {
+		c.removeSubscription(t)
+	}
+	unsuback := packet.EncodeUnsuback()
+	c.Send(unsuback)
+	fmt.Println("Unsubscribed from", packet.Subscriptions.OrderedSubscriptions)
+}
+
+func (c *Client) HandlePublish(packet *packets.Packet) {
+	// first implementing only for QoS 0
+	buf := packet.EncodePublish()
+	c.Broker.SendSubscribers(buf, packet.FixedHeader.Qos, packet.PublishTopic)
 }
 
 func (c *Client) SetClientPropreties(connectionOptions *packets.ConnectOptions){
