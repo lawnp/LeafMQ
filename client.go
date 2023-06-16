@@ -10,6 +10,7 @@ import (
 type Client struct {
 	Propreties *Propreties
 	Conn net.Conn
+	Session *Session
 	isClosed bool
 	Subscriptions map[string]byte
 	Broker *Broker
@@ -28,11 +29,25 @@ type Propreties struct {
 	Keepalive     uint16
 }
 
+type Session struct {
+	PendingPackets map[uint16]*packets.Packet
+}
+
+func (s *Session) Get(packetID uint16) (*packets.Packet, bool) {
+	p, ok := s.PendingPackets[packetID]
+	return p, ok
+}
+
+func (s *Session) Remove(packetId uint16) {
+	delete(s.PendingPackets, packetId)
+}
+
 func NewClient(conn net.Conn, broker *Broker) *Client {
 	return &Client{
 		Conn: conn,
 		Subscriptions: make(map[string]byte),
 		Broker: broker,
+		Session: &Session{},
 	}
 }
 
@@ -105,6 +120,14 @@ func (c *Client) HandlePacket(packet *packets.Packet) {
 		c.HandleUnsubscribe(packet)
 	case packets.PUBLISH:
 		c.HandlePublish(packet)
+	case packets.PUBACK:
+		c.HandlePuback(packet)
+	case packets.PUBREC:
+		c.HandlePubrec(packet)
+	case packets.PUBREL:
+		c.HandlePubrel(packet)
+	case packets.PUBCOMP:
+		c.HandlePubcomp(packet)
 	case packets.PINGREQ:
 		c.HandlePingreq(packet)
 	
@@ -150,9 +173,50 @@ func (c *Client) HandleUnsubscribe(packet *packets.Packet) {
 }
 
 func (c *Client) HandlePublish(packet *packets.Packet) {
-	// first implementing only for QoS 0
-	buf := packet.EncodePublish()
-	c.Broker.SendSubscribers(buf, packet.FixedHeader.Qos, packet.PublishTopic)
+	if packet.FixedHeader.Qos == 1 {
+		fmt.Println("Sending PUBACK")
+		c.Send(packet.EncodePuback())
+	}
+
+	if packet.FixedHeader.Qos == 2 {
+		if _, ok := c.Session.Get(packet.PacketIdentifier); ok {
+			fmt.Println("Packet identifier already in use")
+			return 
+		}
+		pubrec := packets.BuildResp(packet, packets.PUBREC)
+		c.AddPendingPacket(pubrec)
+		c.Send(pubrec.EncodeResp())
+	}
+
+	c.Broker.SendSubscribers(packet)
+}
+
+func (c *Client) HandlePuback(packet *packets.Packet) {
+	fmt.Println("Received PUBACK")
+	delete(c.Session.PendingPackets, packet.PacketIdentifier)
+}
+
+func (c *Client) HandlePubrec(packet *packets.Packet) {
+	pubrel := packets.BuildResp(packet, packets.PUBREL)
+	delete(c.Session.PendingPackets, packet.PacketIdentifier)
+	c.AddPendingPacket(pubrel)
+	c.Send(pubrel.EncodeResp())
+}
+
+func (c *Client) HandlePubrel(packet *packets.Packet) {
+	if _, ok := c.Session.Get(packet.PacketIdentifier); !ok {
+		fmt.Println("Packet identifier not found")
+		return
+	}
+
+	pubcomp := packets.BuildResp(packet, packets.PUBCOMP)
+	c.Session.Remove(packet.PacketIdentifier)
+	c.Send(pubcomp.EncodeResp())
+}
+
+func (c *Client) HandlePubcomp(packet *packets.Packet) {
+	delete(c.Session.PendingPackets, packet.PacketIdentifier)
+	fmt.Println("Received PUBCOMP, qos transaction completed")
 }
 
 func (c *Client) SetClientPropreties(connectionOptions *packets.ConnectOptions){
@@ -185,4 +249,11 @@ func (c *Client) ValidateConnectionOptions() packets.Code {
 	}
 
 	return packets.ACCEPTED
+}
+
+func (c *Client) AddPendingPacket(packet *packets.Packet) {
+	if c.Session.PendingPackets == nil {
+		c.Session.PendingPackets = make(map[uint16]*packets.Packet)
+	}
+	c.Session.PendingPackets[packet.PacketIdentifier] = packet
 }

@@ -57,6 +57,14 @@ func ParsePacket(fh *FixedHeader, conn net.Conn) (*Packet, error) {
 		err = packet.DecodeUnsubscribe(buf)
 	case PUBLISH:
 		err = packet.DecodePublish(buf)
+	case PUBACK:
+		err = packet.DecodePuback(buf)
+	case PUBREC:
+		err = packet.DecodePuback(buf)
+	case PUBREL: 
+		err = packet.DecodePuback(buf)
+	case PUBCOMP:
+		err = packet.DecodePuback(buf)
 	case PINGREQ:
 	case DISCONNECT:
 	default:

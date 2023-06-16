@@ -118,8 +118,19 @@ func (b *Broker) sendConnack(client *Client, code packets.Code) {
 	client.Send(connack.Encode())
 }
 
-func (b *Broker) SendSubscribers(buf []byte, qos byte, topic string) {
-	for _, client := range b.Subscriptions[topic] {
+func (b *Broker) SendSubscribers(packet *packets.Packet) {
+	for _, client := range b.Subscriptions[packet.PublishTopic] {
+		maxQoS := client.Subscriptions[packet.PublishTopic]
+		if maxQoS < packet.FixedHeader.Qos {
+			packet.FixedHeader.Qos = maxQoS
+			if maxQoS == 0 {
+				packet.FixedHeader.RemainingLength -= 2
+			}
+		}
+		buf := packet.EncodePublish()
+		if packet.FixedHeader.Qos != 0 {
+			client.AddPendingPacket(packet)
+		}
 		client.Send(buf)
 	}
 }
