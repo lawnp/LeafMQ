@@ -12,7 +12,6 @@ type Client struct {
 	Conn net.Conn
 	Session *Session
 	isClosed bool
-	Subscriptions map[string]byte
 	Broker *Broker
 }
 
@@ -33,6 +32,12 @@ type Session struct {
 	PendingPackets map[uint16]*packets.Packet
 }
 
+func NewSession() *Session {
+	return &Session{
+		make(map[uint16]*packets.Packet),
+	}
+}
+
 func (s *Session) Get(packetID uint16) (*packets.Packet, bool) {
 	p, ok := s.PendingPackets[packetID]
 	return p, ok
@@ -42,12 +47,21 @@ func (s *Session) Remove(packetId uint16) {
 	delete(s.PendingPackets, packetId)
 }
 
+func (s *Session) Clone() *Session {
+	c := NewSession()
+
+	for k, v := range s.PendingPackets {
+		c.PendingPackets[k] = v
+	}
+
+	return c
+}
+
 func NewClient(conn net.Conn, broker *Broker) *Client {
 	return &Client{
 		Conn: conn,
-		Subscriptions: make(map[string]byte),
 		Broker: broker,
-		Session: &Session{},
+		Session: NewSession(),
 	}
 }
 
@@ -69,24 +83,6 @@ func (c *Client) Close() {
 
 func (c *Client) IsClosed() bool {
 	return c.isClosed
-}
-
-func (c *Client) addSubscription(topic string, qos byte) {
-	c.Subscriptions[topic] = qos
-	c.Broker.Subscriptions[topic] = append(c.Broker.Subscriptions[topic], c)
-}
-
-// this scales very poorly...
-func (c *Client) removeSubscription(topic string) {
-	delete(c.Subscriptions, topic)
-	if clients, ok := c.Broker.Subscriptions[topic]; ok {
-		for i, client := range clients {
-			if client == c {
-				c.Broker.Subscriptions[topic] = append(c.Broker.Subscriptions[topic][:i], c.Broker.Subscriptions[topic][i+1:]...)
-				break
-			}
-		}
-	}
 }
 
 func (c *Client) ReadPackets() error {
@@ -153,20 +149,14 @@ func (c *Client) HandlePingreq(packet *packets.Packet) {
 }
 
 func (c *Client) HandleSubscribe(packet *packets.Packet) {
-	// Subscriptions.Subscriptions... change that in the future please.
-	for t, q := range packet.Subscriptions.Subscriptions {
-		c.addSubscription(t, q)
-	}
-
+	c.Broker.SubscribeClient(c, packet)
 	suback := packet.EncodeSuback()
 	c.Send(suback)
 	fmt.Println("Subscribed to", packet.Subscriptions.OrderedSubscriptions)
 }
 
 func (c *Client) HandleUnsubscribe(packet *packets.Packet) {
-	for _, t := range packet.Subscriptions.OrderedSubscriptions {
-		c.removeSubscription(t)
-	}
+	c.Broker.UnsubscribeClient(c, packet)
 	unsuback := packet.EncodeUnsuback()
 	c.Send(unsuback)
 	fmt.Println("Unsubscribed from", packet.Subscriptions.OrderedSubscriptions)
@@ -252,8 +242,7 @@ func (c *Client) ValidateConnectionOptions() packets.Code {
 }
 
 func (c *Client) AddPendingPacket(packet *packets.Packet) {
-	if c.Session.PendingPackets == nil {
-		c.Session.PendingPackets = make(map[uint16]*packets.Packet)
-	}
 	c.Session.PendingPackets[packet.PacketIdentifier] = packet
 }
+
+

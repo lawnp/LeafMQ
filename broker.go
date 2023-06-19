@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/LanPavletic/nixMQ/listener"
+	listner "github.com/LanPavletic/nixMQ/listener"
 	"github.com/LanPavletic/nixMQ/packets"
 )
 
@@ -17,21 +17,21 @@ const (
 )
 
 type Broker struct {
-	listener []*listner.Listener // listener for incoming connections TODO: support multiple listeners
-	clients map[string]*Client
-	Subscriptions map[string][]*Client
-	Log *log.Logger
+	listener      []*listner.Listener // listener for incoming connections
+	clients       *Clients
+	Subscriptions *TopicTree
+	Log           *log.Logger
 }
 
 func New() *Broker {
 	return &Broker{
-		clients: make(map[string]*Client),
-		Log: initiateLog(),
-		Subscriptions: make(map[string][]*Client),
+		clients:       NewClients(),
+		Log:           initiateLog(),
+		Subscriptions: NewTopicTree(),
 	}
 }
 
-func initiateLog() *log.Logger{
+func initiateLog() *log.Logger {
 	file, err := os.OpenFile(filepath.Join("logs", "broker.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 
 	if err != nil {
@@ -53,17 +53,7 @@ func (b *Broker) AddListener(listner *listner.Listener) {
 	b.listener = append(b.listener, listner)
 }
 
-func (b *Broker) AddClient(client *Client)  {
-	if client.Propreties.ClientID == "" {
-		b.Log.Println("ClientID is empty, creating new one")
-		client.GenerateClientID()
-	}
-
-	b.clients[client.Propreties.ClientID] = client
-}
-
-
-func (b *Broker) BindClient(conn net.Conn) {	
+func (b *Broker) BindClient(conn net.Conn) {
 	client := NewClient(conn, b)
 	defer client.Close()
 
@@ -72,24 +62,26 @@ func (b *Broker) BindClient(conn net.Conn) {
 		b.Log.Println("Error when trying to establish connection:", err)
 		return
 	}
-	// set client properties
+
 	client.SetClientPropreties(connectPacket.ConnectOptions)
 
 	code := client.ValidateConnectionOptions()
-	b.Log.Println("Validated connections options with:", code.Reason)
+	// sessionPresent := b.InheritSession(client)
+
 	b.sendConnack(client, code)
-	
+
 	if code != packets.ACCEPTED {
 		return
 	}
 
-	b.AddClient(client)
+	b.clients.Add(client)
 	err = client.ReadPackets()
 
 	if err != nil {
 		b.Log.Println("Error Reading connections:", err)
-		client.Close() // mybe not needed just in case
 	}
+
+	// need to delete client from clients
 
 	b.Log.Println("Client disconnected")
 }
@@ -119,8 +111,10 @@ func (b *Broker) sendConnack(client *Client, code packets.Code) {
 }
 
 func (b *Broker) SendSubscribers(packet *packets.Packet) {
-	for _, client := range b.Subscriptions[packet.PublishTopic] {
-		maxQoS := client.Subscriptions[packet.PublishTopic]
+	subscribers := b.Subscriptions.GetSubscribers(packet.PublishTopic)
+
+	for client, maxQoS := range subscribers {
+
 		if maxQoS < packet.FixedHeader.Qos {
 			packet.FixedHeader.Qos = maxQoS
 			if maxQoS == 0 {
@@ -132,5 +126,28 @@ func (b *Broker) SendSubscribers(packet *packets.Packet) {
 			client.AddPendingPacket(packet)
 		}
 		client.Send(buf)
+	}
+}
+
+func (b *Broker) InheritSession(client *Client) bool {
+	if oldClient, ok := b.clients.Get(client.Propreties.ClientID); ok {
+		client.Session = oldClient.Session.Clone()
+		return true
+	}
+
+	return false
+}
+
+func (b *Broker) SubscribeClient(client *Client, packet *packets.Packet) {
+	for topic, qos := range packet.Subscriptions.GetAll() {
+		b.Subscriptions.Add(topic, qos, client)
+		b.Log.Println("Client subscribed to topic:", topic)
+	}
+}
+
+func (b *Broker) UnsubscribeClient(client *Client, packet *packets.Packet) {
+	for topic := range packet.Subscriptions.GetAll() {
+		b.Subscriptions.Remove(topic, client)
+		b.Log.Println("Client subscribed to topic:", topic)
 	}
 }
