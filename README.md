@@ -5,9 +5,10 @@ NixMQ is an MQTT 3.1.1 broker developed as part of my final year project dissert
 These instructions will get you a copy of the project up and running on your local machine for testing purposes.
 
 ### Prerequisites
-For running this project you will need golang version 1.20. It is also recommended to use make for easier compiling.
+For running this project you will need [golang] version 1.20. It is also recommended to use [make] for easier compiling.
 
 ### Installing and running
+if using make
 ```
 git clone https://github.com/LanPavletic/NixMQ.git
 cd NixMQ
