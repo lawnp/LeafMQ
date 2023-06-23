@@ -66,9 +66,9 @@ func (b *Broker) BindClient(conn net.Conn) {
 	client.SetClientPropreties(connectPacket.ConnectOptions)
 
 	code := client.ValidateConnectionOptions()
-	// sessionPresent := b.InheritSession(client)
+	sessionPresent := b.InheritSession(client)
 
-	b.sendConnack(client, code)
+	b.sendConnack(client, code, sessionPresent)
 
 	if code != packets.ACCEPTED {
 		return
@@ -101,8 +101,7 @@ func (b *Broker) ReadConnect(client *Client) (*packets.Packet, error) {
 	return connect, err
 }
 
-func (b *Broker) sendConnack(client *Client, code packets.Code) {
-	sesionPresent := false
+func (b *Broker) sendConnack(client *Client, code packets.Code, sesionPresent bool) {
 	connack := packets.NewConnack(code, sesionPresent)
 	fmt.Println(connack)
 	b.Log.Println("Sending connack")
@@ -131,7 +130,24 @@ func (b *Broker) SendSubscribers(packet *packets.Packet) {
 
 func (b *Broker) InheritSession(client *Client) bool {
 	if oldClient, ok := b.clients.Get(client.Propreties.ClientID); ok {
-		client.Session = oldClient.Session.Clone()
+
+		if client.Propreties.CleanSession {
+			// need to implement session take over.
+			return false
+		}
+
+		b.Log.Println("Client already exists, inheriting session")
+		client.Session = oldClient.Session.ClonePendingPackets()
+		
+		for topic, qos := range oldClient.Session.Subscriptions.getAll() {
+			b.Subscriptions.Remove(topic, oldClient)
+			oldClient.Session.Subscriptions.remove(topic)
+
+			b.Subscriptions.Add(topic, qos, client)
+			client.Session.Subscriptions.add(topic, qos)
+		}
+
+		oldClient.Close()
 		return true
 	}
 
@@ -141,6 +157,7 @@ func (b *Broker) InheritSession(client *Client) bool {
 func (b *Broker) SubscribeClient(client *Client, packet *packets.Packet) {
 	for topic, qos := range packet.Subscriptions.GetAll() {
 		b.Subscriptions.Add(topic, qos, client)
+		client.Session.Subscriptions.add(topic, qos)
 		b.Log.Println("Client subscribed to topic:", topic)
 	}
 }
@@ -148,6 +165,7 @@ func (b *Broker) SubscribeClient(client *Client, packet *packets.Packet) {
 func (b *Broker) UnsubscribeClient(client *Client, packet *packets.Packet) {
 	for topic := range packet.Subscriptions.GetAll() {
 		b.Subscriptions.Remove(topic, client)
+		client.Session.Subscriptions.remove(topic)
 		b.Log.Println("Client subscribed to topic:", topic)
 	}
 }

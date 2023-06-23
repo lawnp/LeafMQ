@@ -1,15 +1,9 @@
 package packets
 
-import "fmt"
-
 type Connack struct {
 	FixedHeader   *FixedHeader
 	SesionPresent bool
 	ReturnCode    Code
-}
-
-func (c Connack) String() {
-	fmt.Sprintf("FixedHeader: %+v, returnCode: %+v\n", c.FixedHeader, c.ReturnCode)
 }
 
 func NewConnack(code Code, SesionPresent bool) *Connack {

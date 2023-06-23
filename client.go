@@ -9,10 +9,10 @@ import (
 
 type Client struct {
 	Propreties *Propreties
-	Conn net.Conn
-	Session *Session
-	isClosed bool
-	Broker *Broker
+	Conn       net.Conn
+	Session    *Session
+	isClosed   bool
+	Broker     *Broker
 }
 
 type Propreties struct {
@@ -30,11 +30,13 @@ type Propreties struct {
 
 type Session struct {
 	PendingPackets map[uint16]*packets.Packet
+	Subscriptions *Subscriptions
 }
 
 func NewSession() *Session {
 	return &Session{
 		make(map[uint16]*packets.Packet),
+		newSubscriptions(),
 	}
 }
 
@@ -47,7 +49,7 @@ func (s *Session) Remove(packetId uint16) {
 	delete(s.PendingPackets, packetId)
 }
 
-func (s *Session) Clone() *Session {
+func (s *Session) ClonePendingPackets() *Session {
 	c := NewSession()
 
 	for k, v := range s.PendingPackets {
@@ -59,8 +61,8 @@ func (s *Session) Clone() *Session {
 
 func NewClient(conn net.Conn, broker *Broker) *Client {
 	return &Client{
-		Conn: conn,
-		Broker: broker,
+		Conn:    conn,
+		Broker:  broker,
 		Session: NewSession(),
 	}
 }
@@ -126,7 +128,7 @@ func (c *Client) HandlePacket(packet *packets.Packet) {
 		c.HandlePubcomp(packet)
 	case packets.PINGREQ:
 		c.HandlePingreq(packet)
-	
+
 	default:
 		fmt.Println("TODO: implement handling of", packet.FixedHeader.MessageType)
 	}
@@ -171,7 +173,7 @@ func (c *Client) HandlePublish(packet *packets.Packet) {
 	if packet.FixedHeader.Qos == 2 {
 		if _, ok := c.Session.Get(packet.PacketIdentifier); ok {
 			fmt.Println("Packet identifier already in use")
-			return 
+			return
 		}
 		pubrec := packets.BuildResp(packet, packets.PUBREC)
 		c.AddPendingPacket(pubrec)
@@ -209,7 +211,7 @@ func (c *Client) HandlePubcomp(packet *packets.Packet) {
 	fmt.Println("Received PUBCOMP, qos transaction completed")
 }
 
-func (c *Client) SetClientPropreties(connectionOptions *packets.ConnectOptions){
+func (c *Client) SetClientPropreties(connectionOptions *packets.ConnectOptions) {
 	c.Propreties = &Propreties{
 		ProtocolLevel: connectionOptions.ProtocolLevel,
 		ClientID:      connectionOptions.ClientID,
@@ -229,11 +231,6 @@ func (c *Client) ValidateConnectionOptions() packets.Code {
 		return packets.UNACCEPTABLE_PROTOCOL_VERSION
 	}
 
-	if !c.Propreties.CleanSession {
-		fmt.Println("TODO: implement session persistence")
-		return packets.SERVER_UNAVAILABLE
-	}
-
 	if c.Propreties.ClientID == "" || len(c.Propreties.ClientID) > 23 {
 		return packets.IDENTIFIER_REJECTED
 	}
@@ -244,5 +241,3 @@ func (c *Client) ValidateConnectionOptions() packets.Code {
 func (c *Client) AddPendingPacket(packet *packets.Packet) {
 	c.Session.PendingPackets[packet.PacketIdentifier] = packet
 }
-
-

@@ -76,7 +76,7 @@ func (t *TopicTree) GetSubscribers(topic string) map[*Client]byte {
 type topicNode struct {
 	prev        *topicNode
 	children    map[string]*topicNode // all child nodes
-	subscribers *subscribers          // array of client ids that are subscribed to this topic level
+	subscribers *Subscribers          // array of client ids that are subscribed to this topic level
 }
 
 func newTopicNode() *topicNode {
@@ -86,24 +86,46 @@ func newTopicNode() *topicNode {
 	}
 }
 
-type subscribers struct {
+type Subscribers struct {
 	clients map[*Client]byte
 }
 
-func newSubscribers() *subscribers {
-	return &subscribers{
+func newSubscribers() *Subscribers {
+	return &Subscribers{
 		clients: make(map[*Client]byte),
 	}
 }
 
-func (s *subscribers) add(client *Client, maxQoS byte) {
+func (s *Subscribers) add(client *Client, maxQoS byte) {
 	s.clients[client] = maxQoS
 }
 
-func (s *subscribers) remove(client *Client) {
+func (s *Subscribers) remove(client *Client) {
 	delete(s.clients, client)
 }
 
-func (s *subscribers) getAll() map[*Client]byte {
+func (s *Subscribers) getAll() map[*Client]byte {
 	return s.clients
+}
+
+type Subscriptions struct {
+	topics map[string]byte
+}
+
+func newSubscriptions() *Subscriptions {
+	return &Subscriptions{
+		topics: make(map[string]byte),
+	}
+}
+
+func (s *Subscriptions) add(topic string, maxQoS byte) {
+	s.topics[topic] = maxQoS
+}
+
+func (s *Subscriptions) remove(topic string) {
+	delete(s.topics, topic)
+}
+
+func (s *Subscriptions) getAll() map[string]byte {
+	return s.topics
 }
