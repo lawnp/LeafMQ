@@ -21,6 +21,6 @@ After executing this, the broker should be running on your machine.
 ### testing with clients
 For testing the broker I recommend using [MQTTX] application. It is made for testing MQTT brokers with powerfull and well designed GUI.
 
-[goang]: https://go.dev/
+[golang]: https://go.dev/
 [make]: https://www.gnu.org/software/make/
 [MQTTX]: https://mqttx.app/
