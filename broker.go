@@ -31,15 +31,26 @@ func New() *Broker {
 	}
 }
 
+// initiateLog creates a log file if it doesn't already exist. If the log file creation fails,
+// it will fallback to logging only to stdout. On successful creation, it will log messages
+// both to stdout and the log file. The function returns a *log.Logger instance for logging purposes.
 func initiateLog() *log.Logger {
-	file, err := os.OpenFile(filepath.Join("logs", "broker.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-
+	// Create logs directory if it doesn't exist
+	err := os.MkdirAll("logs", os.ModePerm)
 	if err != nil {
-		fmt.Println("Error opening log file:", err)
+		fmt.Println("Error creating logs directory:", err)
+		return log.New(os.Stdout, "nixMQ: ", log.LstdFlags)
 	}
 
-	multipleOutput := io.MultiWriter(file, os.Stdout)
-	return log.New(multipleOutput, "nixMQ: ", log.LstdFlags)
+	filePath := filepath.Join("logs", "broker.log")
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		fmt.Println("Error opening log file:", err)
+		return log.New(os.Stdout, "nixMQ: ", log.LstdFlags)
+	}
+
+	multiOut := io.MultiWriter(file, os.Stdout)
+	return log.New(multiOut, "nixMQ: ", log.LstdFlags)
 }
 
 func (b *Broker) Start() {
