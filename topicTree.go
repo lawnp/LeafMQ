@@ -73,6 +73,32 @@ func (t *TopicTree) GetSubscribers(topic string) map[*Client]byte {
 	return node.subscribers.getAll()
 }
 
+func (t *TopicTree) GetAllTopics() []string {
+	topics := make([]string, 0)
+	// tree traversal, append all topics to topics array
+	getAllTopicsRecursive(t.root, "", &topics)
+	return topics
+}
+
+func getAllTopicsRecursive(node *topicNode, topic string, topics *[]string) {
+	if node.subscribers != nil && len(node.subscribers.getAll()) > 0 {
+		*topics = append(*topics, topic)
+	}
+
+	for topicLevel, childNode := range node.children {
+		if topic != "" {
+			topicLevel = topic + "/" + topicLevel
+		}
+		getAllTopicsRecursive(childNode, topicLevel, topics)
+	}
+}
+
+func (t *TopicTree) RemoveClientSubscriptions(client *Client) {
+	for topic := range client.Session.Subscriptions.getAll() {
+		t.Remove(topic, client)
+	}
+}
+
 type topicNode struct {
 	prev        *topicNode
 	children    map[string]*topicNode // all child nodes

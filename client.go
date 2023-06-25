@@ -142,7 +142,6 @@ func (c *Client) HandleConnect(packet *packets.Packet) {
 }
 
 func (c *Client) HandleDisconnect(packet *packets.Packet) {
-	fmt.Println("Disconnecting client because of DISCONNECT packet")
 	c.Close()
 }
 
@@ -240,4 +239,10 @@ func (c *Client) ValidateConnectionOptions() packets.Code {
 
 func (c *Client) AddPendingPacket(packet *packets.Packet) {
 	c.Session.PendingPackets[packet.PacketIdentifier] = packet
+}
+
+func (c *Client) ResendPendingPackets() {
+	for _, packet := range c.Session.PendingPackets {
+		c.Send(packet.Encode())
+	}
 }

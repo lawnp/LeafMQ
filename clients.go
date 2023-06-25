@@ -23,6 +23,14 @@ func (c *Clients) Get(clientID string) (*Client, bool) {
 	return client, ok
 }
 
-func (c *Clients) Remove(clientID string) {
-	delete(c.internal, clientID)
+func (c *Clients) Remove(client *Client) {
+	delete(c.internal, client.Propreties.ClientID)
+}
+
+func (c *Clients) GetAll() map[string]*Client {
+	return c.internal
+}
+
+func (c *Clients) Len() int {
+	return len(c.internal)
 }

@@ -83,3 +83,19 @@ func EncodePingresp() []byte {
 	buffer[1] = 0
 	return buffer
 }
+
+// this is used when resending pending QoS 1 and 2 messages
+// needed because its unsure what type of packet it is
+// in the future this can be reimplemented to include all packet types
+func (p *Packet) Encode()[]byte {
+	switch p.FixedHeader.MessageType {
+	case PUBLISH:
+		return p.EncodePublish()
+	case PUBACK, PUBREC, PUBREL, PUBCOMP:
+		return p.EncodePuback()
+	default:
+		fmt.Println("Unknown packet type: ", p.FixedHeader.MessageType)
+		return nil
+	}
+
+}

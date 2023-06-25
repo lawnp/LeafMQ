@@ -17,12 +17,13 @@ const (
 )
 
 type Broker struct {
-	listener      []*listner.Listener // listener for incoming connections
-	clients       *Clients
-	Subscriptions *TopicTree
-	Log           *log.Logger
+	listener      []*listner.Listener 	// listener for incoming connections
+	clients       *Clients				// map of connected clients
+	Subscriptions *TopicTree			// tree of topics and their subscribers
+	Log           *log.Logger			// logger for logging messages
 }
 
+// creates a new broker instance
 func New() *Broker {
 	return &Broker{
 		clients:       NewClients(),
@@ -58,6 +59,28 @@ func (b *Broker) Start() {
 	for _, l := range b.listener {
 		go l.Serve(b.BindClient)
 	}
+
+	go b.handleCommands()
+}
+
+func (b *Broker) handleCommands() {
+	for {
+		var command string
+		fmt.Scanln(&command)
+
+		switch command {
+		case "clients":
+			b.Log.Println("Connected clients:", b.clients.Len())
+			for clientId := range b.clients.GetAll() {
+				b.Log.Println(clientId)
+			}
+		case "topics":
+			b.Log.Println("Topics:")
+			for _, topic := range b.Subscriptions.GetAllTopics() {
+				b.Log.Println(topic)
+			}
+		}
+	}
 }
 
 func (b *Broker) AddListener(listner *listner.Listener) {
@@ -86,14 +109,18 @@ func (b *Broker) BindClient(conn net.Conn) {
 	}
 
 	b.clients.Add(client)
+
+	if sessionPresent {
+		client.ResendPendingPackets()
+	}
+	
 	err = client.ReadPackets()
 
 	if err != nil {
 		b.Log.Println("Error Reading connections:", err)
 	}
 
-	// need to delete client from clients
-
+	b.CloseClient(client)
 	b.Log.Println("Client disconnected")
 }
 
@@ -142,8 +169,10 @@ func (b *Broker) SendSubscribers(packet *packets.Packet) {
 func (b *Broker) InheritSession(client *Client) bool {
 	if oldClient, ok := b.clients.Get(client.Propreties.ClientID); ok {
 
+		// if clean session is true, we need to take over the session
 		if client.Propreties.CleanSession {
-			// need to implement session take over.
+			b.Log.Println("Client already exists, cleaning session")
+			b.CloseClient(oldClient)
 			return false
 		}
 
@@ -158,7 +187,8 @@ func (b *Broker) InheritSession(client *Client) bool {
 			client.Session.Subscriptions.add(topic, qos)
 		}
 
-		oldClient.Close()
+		b.CloseClient(oldClient)
+
 		return true
 	}
 
@@ -179,4 +209,20 @@ func (b *Broker) UnsubscribeClient(client *Client, packet *packets.Packet) {
 		client.Session.Subscriptions.remove(topic)
 		b.Log.Println("Client subscribed to topic:", topic)
 	}
+}
+
+func (b *Broker) CloseClient(client *Client) {
+	b.Log.Println("Disconnecting client", client.Propreties.ClientID)
+
+	if client.Propreties.CleanSession {
+		// this needs testing if client memory is freed
+		b.CleanUp(client)
+	}
+}
+
+func (b *Broker) CleanUp(client *Client) {
+	b.clients.Remove(client)
+	b.Subscriptions.RemoveClientSubscriptions(client)
+	// I think this is needed to ensure that the client is garbage collected
+	client.Broker = nil
 }
