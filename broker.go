@@ -109,11 +109,12 @@ func (b *Broker) BindClient(conn net.Conn) {
 	}
 
 	b.clients.Add(client)
+	client.RefreshKeepAlive()
 
 	if sessionPresent {
 		client.ResendPendingPackets()
 	}
-	
+
 	err = client.ReadPackets()
 
 	if err != nil {

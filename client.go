@@ -3,6 +3,7 @@ package nixmq
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/LanPavletic/nixMQ/packets"
 )
@@ -92,6 +93,8 @@ func (c *Client) ReadPackets() error {
 		if c.IsClosed() {
 			return nil
 		}
+
+		c.RefreshKeepAlive()
 		fixedHeader, err := packets.DecodeFixedHeader(c.Conn)
 		if err != nil {
 			return err
@@ -244,5 +247,20 @@ func (c *Client) AddPendingPacket(packet *packets.Packet) {
 func (c *Client) ResendPendingPackets() {
 	for _, packet := range c.Session.PendingPackets {
 		c.Send(packet.Encode())
+	}
+}
+
+// RefreshKeepAlive refreshes deadline for connection
+// this is done at the start of connection
+// and every time client sends a message
+// [MQTT-3.1.2-23]
+func (c *Client) RefreshKeepAlive() {
+	kp := c.Propreties.Keepalive
+	deadLine := time.Now().Add(time.Duration(kp + kp / 2) * time.Second) // [MQTT-3.1.2-24]
+	
+	if kp != 0 {
+		c.Conn.SetDeadline(deadLine)
+	} else {
+		c.Conn.SetDeadline(time.Time{})
 	}
 }
