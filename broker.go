@@ -198,8 +198,13 @@ func (b *Broker) InheritSession(client *Client) bool {
 
 func (b *Broker) SubscribeClient(client *Client, packet *packets.Packet) {
 	for topic, qos := range packet.Subscriptions.GetAll() {
-		b.Subscriptions.Add(topic, qos, client)
+		retained := b.Subscriptions.Add(topic, qos, client)
 		client.Session.Subscriptions.add(topic, qos)
+
+		if retained != nil {
+			client.Send(retained.EncodePublish())
+		}
+
 		b.Log.Println("Client subscribed to topic:", topic)
 	}
 }
@@ -227,3 +232,4 @@ func (b *Broker) CleanUp(client *Client) {
 	// I think this is needed to ensure that the client is garbage collected
 	client.Broker = nil
 }
+

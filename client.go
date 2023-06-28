@@ -182,6 +182,10 @@ func (c *Client) HandlePublish(packet *packets.Packet) {
 		c.Send(pubrec.EncodeResp())
 	}
 
+	if packet.FixedHeader.Retain {
+		c.Broker.Subscriptions.Retain(packet)
+	}
+
 	c.Broker.SendSubscribers(packet)
 }
 

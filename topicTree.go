@@ -3,6 +3,8 @@ package nixmq
 import (
 	"fmt"
 	"strings"
+
+	"github.com/LanPavletic/nixMQ/packets"
 )
 
 type TopicTree struct {
@@ -15,9 +17,11 @@ func NewTopicTree() *TopicTree {
 	}
 }
 
-func (t *TopicTree) Add(topic string, maxQoS byte, client *Client) {
+func (t *TopicTree) Add(topic string, maxQoS byte, client *Client) *packets.Packet {
 	topicLevels := splitTopic(topic)
-	t.addTopicRecursive(topicLevels, maxQoS, t.root, client)
+	node := t.getTopicNode(topicLevels, t.root)
+	node.subscribers.add(client, maxQoS)
+	return node.retained
 }
 
 func (t *TopicTree) Remove(topic string, client *Client) {
@@ -29,10 +33,9 @@ func splitTopic(topic string) []string {
 	return strings.Split(topic, "/")
 }
 
-func (t *TopicTree) addTopicRecursive(topicLevels []string, maxQoS byte, node *topicNode, client *Client) {
+func (t *TopicTree) getTopicNode(topicLevels []string, node *topicNode) *topicNode {
 	if len(topicLevels) == 0 {
-		node.subscribers.add(client, maxQoS)
-		return
+		return node
 	}
 
 	topicLevel := topicLevels[0]
@@ -41,7 +44,7 @@ func (t *TopicTree) addTopicRecursive(topicLevels []string, maxQoS byte, node *t
 		childNode = newTopicNode()
 		node.children[topicLevel] = childNode
 	}
-	t.addTopicRecursive(topicLevels[1:], maxQoS, childNode, client)
+	return t.getTopicNode(topicLevels[1:], childNode)
 }
 
 func (t *TopicTree) removeTopicRecursive(topicLevels []string, node *topicNode, client *Client) {
@@ -99,10 +102,15 @@ func (t *TopicTree) RemoveClientSubscriptions(client *Client) {
 	}
 }
 
+func (t *TopicTree) Retain(packet *packets.Packet) {
+	topicLevels := splitTopic(packet.PublishTopic)
+	t.getTopicNode(topicLevels, t.root).retained = packet
+}
+
 type topicNode struct {
-	prev        *topicNode
 	children    map[string]*topicNode // all child nodes
 	subscribers *Subscribers          // array of client ids that are subscribed to this topic level
+	retained	*packets.Packet       // retained message
 }
 
 func newTopicNode() *topicNode {

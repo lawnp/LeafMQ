@@ -16,18 +16,15 @@ func (p *Packet) DecodePuback(buf []byte) error {
 	return nil
 }
 
-
-
-// reassembling the packet is a bit useless, since we just decoded it.
-// but I don't want to save the whole packet in memory again.
-// maybe I should... who knows.
 func (p *Packet) EncodePublish() []byte {
 	var buffer []byte
 	buffer = append(buffer, p.FixedHeader.Encode()...)
 	buffer = append(buffer, EncodeUTF8String(p.PublishTopic)...)
+
 	if p.FixedHeader.Qos > 0 {
 		buffer = append(buffer, EncodePacketIdentifier(p.PacketIdentifier)...)
 	}
+
 	buffer = append(buffer, p.Payload...)
 	return buffer
 }
