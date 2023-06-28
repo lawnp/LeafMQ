@@ -156,25 +156,21 @@ func (c *Client) HandleSubscribe(packet *packets.Packet) {
 	c.Broker.SubscribeClient(c, packet)
 	suback := packet.EncodeSuback()
 	c.Send(suback)
-	fmt.Println("Subscribed to", packet.Subscriptions.OrderedSubscriptions)
 }
 
 func (c *Client) HandleUnsubscribe(packet *packets.Packet) {
 	c.Broker.UnsubscribeClient(c, packet)
 	unsuback := packet.EncodeUnsuback()
 	c.Send(unsuback)
-	fmt.Println("Unsubscribed from", packet.Subscriptions.OrderedSubscriptions)
 }
 
 func (c *Client) HandlePublish(packet *packets.Packet) {
 	if packet.FixedHeader.Qos == 1 {
-		fmt.Println("Sending PUBACK")
 		c.Send(packet.EncodePuback())
 	}
 
 	if packet.FixedHeader.Qos == 2 {
 		if _, ok := c.Session.Get(packet.PacketIdentifier); ok {
-			fmt.Println("Packet identifier already in use")
 			return
 		}
 		pubrec := packets.BuildResp(packet, packets.PUBREC)
@@ -190,7 +186,6 @@ func (c *Client) HandlePublish(packet *packets.Packet) {
 }
 
 func (c *Client) HandlePuback(packet *packets.Packet) {
-	fmt.Println("Received PUBACK")
 	delete(c.Session.PendingPackets, packet.PacketIdentifier)
 }
 
@@ -214,7 +209,6 @@ func (c *Client) HandlePubrel(packet *packets.Packet) {
 
 func (c *Client) HandlePubcomp(packet *packets.Packet) {
 	delete(c.Session.PendingPackets, packet.PacketIdentifier)
-	fmt.Println("Received PUBCOMP, qos transaction completed")
 }
 
 func (c *Client) SetClientPropreties(connectionOptions *packets.ConnectOptions) {

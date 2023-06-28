@@ -19,7 +19,11 @@ type Subscribtions struct {
 
 func (s *Subscribtions) GetAll() map[string]byte {
 	return s.Subscriptions
-} 
+}
+
+func (s *Subscribtions) GetOrdered() []string {
+	return s.OrderedSubscriptions
+}
 
 func (p *Packet) DecodeSubscribe(buf []byte) error {
 	if !validFHSubscribe(p.FixedHeader) {

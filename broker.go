@@ -210,10 +210,10 @@ func (b *Broker) SubscribeClient(client *Client, packet *packets.Packet) {
 }
 
 func (b *Broker) UnsubscribeClient(client *Client, packet *packets.Packet) {
-	for topic := range packet.Subscriptions.GetAll() {
+	for _, topic := range packet.Subscriptions.GetOrdered() {
 		b.Subscriptions.Remove(topic, client)
 		client.Session.Subscriptions.remove(topic)
-		b.Log.Println("Client subscribed to topic:", topic)
+		b.Log.Println("Client unsubscribed from topic:", topic)
 	}
 }
 
