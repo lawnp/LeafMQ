@@ -138,7 +138,6 @@ func (c *Client) HandlePacket(packet *packets.Packet) {
 }
 
 // Broker should not recive CONNECT packet here. If it does disconnect client
-// TODO: check how it should handle in case for persistent sessions
 func (c *Client) HandleConnect(packet *packets.Packet) {
 	fmt.Println("Disconnecting client because of another CONNECT packet")
 	c.Close()

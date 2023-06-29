@@ -25,6 +25,11 @@ type ConnectOptions struct {
 	Keepalive     uint16
 }
 
+func (co *ConnectOptions) Copy() *ConnectOptions {
+	connectionOptions := *co
+	return &connectionOptions
+}
+
 type ErrWrongProtocolName struct{}
 
 func (e *ErrWrongProtocolName) Error() string {

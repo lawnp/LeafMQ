@@ -55,3 +55,12 @@ func BuildResp(packet *Packet, messageType byte) *Packet {
 	resp.PacketIdentifier = packet.PacketIdentifier
 	return resp
 }
+
+func (p *Packet) SetRightQoS(maxQoS byte) {
+	if maxQoS < p.FixedHeader.Qos {
+		p.FixedHeader.Qos = maxQoS
+		if maxQoS == 0 {
+			p.FixedHeader.RemainingLength -= 2
+		}
+	}
+}

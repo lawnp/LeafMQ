@@ -33,8 +33,16 @@ type Packet struct {
 	Payload []byte
 }
 
-func (p *Packet) String() string {
-	return p.FixedHeader.String()
+// Copies only fixed header, as it is the only part that is needed
+func (p *Packet) Copy() *Packet {
+	packet := new(Packet)
+	packet.FixedHeader = p.FixedHeader.Copy()
+	packet.ConnectOptions = p.ConnectOptions
+	packet.Subscriptions = p.Subscriptions
+	packet.PublishTopic = p.PublishTopic
+	packet.PacketIdentifier = p.PacketIdentifier
+	packet.Payload = p.Payload
+	return packet
 }
 
 func ParsePacket(fh *FixedHeader, conn net.Conn) (*Packet, error) {

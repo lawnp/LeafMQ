@@ -13,6 +13,11 @@ type FixedHeader struct {
 	RemainingLength uint32 // remaining length including data in the variable header and the payload.
 }
 
+func (fh *FixedHeader) Copy() *FixedHeader {
+	fixedHeader := *fh
+	return &fixedHeader
+}
+
 func (f *FixedHeader) Encode() []byte {
 	buf := make([]byte, 1)
 	buf[0] = f.MessageType << 4

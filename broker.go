@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	listner "github.com/LanPavletic/nixMQ/listener"
+	listener "github.com/LanPavletic/nixMQ/listener"
 	"github.com/LanPavletic/nixMQ/packets"
 )
 
@@ -17,7 +17,7 @@ const (
 )
 
 type Broker struct {
-	listener      []*listner.Listener 	// listener for incoming connections
+	listener      []*listener.Listener 	// listener for incoming connections
 	clients       *Clients				// map of connected clients
 	Subscriptions *TopicTree			// tree of topics and their subscribers
 	Log           *log.Logger			// logger for logging messages
@@ -83,7 +83,7 @@ func (b *Broker) handleCommands() {
 	}
 }
 
-func (b *Broker) AddListener(listner *listner.Listener) {
+func (b *Broker) AddListener(listner *listener.Listener) {
 	b.listener = append(b.listener, listner)
 }
 
@@ -132,7 +132,7 @@ func (b *Broker) ReadConnect(client *Client) (*packets.Packet, error) {
 	}
 
 	if fixedHeader.MessageType != packets.CONNECT {
-		return nil, fmt.Errorf("Expected CONNECT packet, got %v", fixedHeader.MessageType)
+		return nil, fmt.Errorf("expected CONNECT packet, got %v", fixedHeader.MessageType)
 	}
 
 	connect, err := packets.ParsePacket(fixedHeader, client.Conn)
@@ -142,42 +142,42 @@ func (b *Broker) ReadConnect(client *Client) (*packets.Packet, error) {
 
 func (b *Broker) sendConnack(client *Client, code packets.Code, sesionPresent bool) {
 	connack := packets.NewConnack(code, sesionPresent)
-	fmt.Println(connack)
 	b.Log.Println("Sending connack")
 	// TODO check if client is still connected
 	client.Send(connack.Encode())
 }
 
+// SendSubscribers sends a packet to all subscribers of a topic,
+// adjusting the QoS and encoding the packet before sending it.
+// If the packet has non-zero QoS, it adds it to the subscriber's
+// pending packets list before sending.
 func (b *Broker) SendSubscribers(packet *packets.Packet) {
 	subscribers := b.Subscriptions.GetSubscribers(packet.PublishTopic)
 
 	for client, maxQoS := range subscribers {
-
-		if maxQoS < packet.FixedHeader.Qos {
-			packet.FixedHeader.Qos = maxQoS
-			if maxQoS == 0 {
-				packet.FixedHeader.RemainingLength -= 2
-			}
-		}
+		packet.SetRightQoS(maxQoS)
 		buf := packet.EncodePublish()
+
 		if packet.FixedHeader.Qos != 0 {
 			client.AddPendingPacket(packet)
 		}
+
 		client.Send(buf)
 	}
 }
 
+// InheritSession takes over the session of a client if a previous client with the same ClientID exists.
+// If the client's CleanSession flag is true, the old client is closed and the session is not inherited.
+// Returns true if session inheritance is successful, and false otherwise.
 func (b *Broker) InheritSession(client *Client) bool {
 	if oldClient, ok := b.clients.Get(client.Propreties.ClientID); ok {
 
 		// if clean session is true, we need to take over the session
 		if client.Propreties.CleanSession {
-			b.Log.Println("Client already exists, cleaning session")
 			b.CloseClient(oldClient)
 			return false
 		}
 
-		b.Log.Println("Client already exists, inheriting session")
 		client.Session = oldClient.Session.ClonePendingPackets()
 		
 		for topic, qos := range oldClient.Session.Subscriptions.getAll() {
@@ -196,13 +196,19 @@ func (b *Broker) InheritSession(client *Client) bool {
 	return false
 }
 
+// SubscribeClient subscribes a client to the topics in the packet,
+// adding it to the Broker's subscriptions and updating the client's session subscriptions.
+// If there is a retained message for a topic, it sends a copy to the client with the adjusted QoS.
 func (b *Broker) SubscribeClient(client *Client, packet *packets.Packet) {
 	for topic, qos := range packet.Subscriptions.GetAll() {
 		retained := b.Subscriptions.Add(topic, qos, client)
 		client.Session.Subscriptions.add(topic, qos)
 
 		if retained != nil {
-			client.Send(retained.EncodePublish())
+			// needs to be copied because we might need to change the QoS
+			retainedCopy := retained.Copy()
+			retainedCopy.SetRightQoS(qos)
+			client.Send(retainedCopy.EncodePublish())
 		}
 
 		b.Log.Println("Client subscribed to topic:", topic)

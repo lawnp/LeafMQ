@@ -17,6 +17,16 @@ type Subscribtions struct {
 	OrderedSubscriptions []string
 }
 
+func (s *Subscribtions) Copy() *Subscribtions {
+	subscriptions := make(map[string]byte)
+	for k, v := range s.Subscriptions {
+		subscriptions[k] = v
+	}
+	orderedSubscriptions := make([]string, len(s.OrderedSubscriptions))
+	copy(orderedSubscriptions, s.OrderedSubscriptions)
+	return &Subscribtions{subscriptions, orderedSubscriptions}
+}
+
 func (s *Subscribtions) GetAll() map[string]byte {
 	return s.Subscriptions
 }
