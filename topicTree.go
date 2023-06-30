@@ -3,6 +3,7 @@ package nixmq
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/LanPavletic/nixMQ/packets"
 )
@@ -34,6 +35,9 @@ func splitTopic(topic string) []string {
 }
 
 func (t *TopicTree) getTopicNode(topicLevels []string, node *topicNode) *topicNode {
+	node.mu.Lock()
+	defer node.mu.Unlock()
+
 	if len(topicLevels) == 0 {
 		return node
 	}
@@ -48,6 +52,9 @@ func (t *TopicTree) getTopicNode(topicLevels []string, node *topicNode) *topicNo
 }
 
 func (t *TopicTree) removeTopicRecursive(topicLevels []string, node *topicNode, client *Client) {
+	node.mu.Lock()
+	defer node.mu.Unlock()
+
 	if len(topicLevels) == 0 {
 		node.subscribers.remove(client)
 		return
@@ -63,6 +70,7 @@ func (t *TopicTree) removeTopicRecursive(topicLevels []string, node *topicNode, 
 }
 
 func (t *TopicTree) GetSubscribers(topic string) *Subscribers {
+
 	topicLevels := splitTopic(topic)
 	subscribers := newSubscribers()
 
@@ -70,10 +78,14 @@ func (t *TopicTree) GetSubscribers(topic string) *Subscribers {
 
 	for i := 0; i < len(topicLevels); i++ {
 		topicLevel := topicLevels[i]
-		subscribers.addWildCardSubscribers(node)
+
+		node.mu.RLock()
+		defer node.mu.RUnlock()
+
+		subscribers.addMultiLevelWildCardSubscribers(node)
 
 		if child, ok := node.children["+"]; ok {
-			getSingleLevelWildCardSubscribers(child, subscribers, topicLevels[i+1:])
+			subscribers.addSingleLevelWildCardSubscribers(child, topicLevels[i + 1:])
 		}
 
 		childNode, ok := node.children[topicLevel]
@@ -85,16 +97,16 @@ func (t *TopicTree) GetSubscribers(topic string) *Subscribers {
 		node = childNode
 	}
 
-	subscribers.addWildCardSubscribers(node)
-
+	subscribers.addMultiLevelWildCardSubscribers(node)
+	
 	for client, qos := range node.subscribers.getAll() {
-		subscribers.clients[client] = qos
+		subscribers.add(client, qos)
 	}
 	
 	return subscribers
 }
 
-func (s *Subscribers) addWildCardSubscribers(node *topicNode) {
+func (s *Subscribers) addMultiLevelWildCardSubscribers(node *topicNode) {
 	if child, ok := node.children["#"]; ok {
 		for client, qos := range child.subscribers.getAll() {
 			s.add(client, qos)
@@ -102,7 +114,7 @@ func (s *Subscribers) addWildCardSubscribers(node *topicNode) {
 	}
 }
 
-func getSingleLevelWildCardSubscribers(node *topicNode, subscribers *Subscribers, topicLevels []string) {
+func (s *Subscribers) addSingleLevelWildCardSubscribers(node *topicNode, topicLevels []string) {
 	for _, topicLevel := range topicLevels {
 		childNode, ok := node.children[topicLevel]
 
@@ -114,11 +126,13 @@ func getSingleLevelWildCardSubscribers(node *topicNode, subscribers *Subscribers
 	}
 
 	for client, qos := range node.subscribers.getAll() {
-		subscribers.clients[client] = qos
+		s.add(client, qos)
 	}
 }
 
 func (t *TopicTree) GetAllTopics() []string {
+	t.root.mu.RLock()
+	defer t.root.mu.RUnlock()
 	topics := make([]string, 0)
 	// tree traversal, append all topics to topics array
 	getAllTopicsRecursive(t.root, "", &topics)
@@ -131,6 +145,8 @@ func getAllTopicsRecursive(node *topicNode, topic string, topics *[]string) {
 	}
 
 	for topicLevel, childNode := range node.children {
+		childNode.mu.RLock()
+		defer childNode.mu.RUnlock()
 		if topic != "" {
 			topicLevel = topic + "/" + topicLevel
 		}
@@ -150,6 +166,7 @@ func (t *TopicTree) Retain(packet *packets.Packet) {
 }
 
 type topicNode struct {
+	mu sync.RWMutex
 	children    map[string]*topicNode // all child nodes
 	subscribers *Subscribers          // array of client ids that are subscribed to this topic level
 	retained	*packets.Packet       // retained message
@@ -163,6 +180,7 @@ func newTopicNode() *topicNode {
 }
 
 type Subscribers struct {
+	mu sync.RWMutex
 	clients map[*Client]byte
 }
 
@@ -173,18 +191,25 @@ func newSubscribers() *Subscribers {
 }
 
 func (s *Subscribers) add(client *Client, maxQoS byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.clients[client] = maxQoS
 }
 
 func (s *Subscribers) remove(client *Client) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	delete(s.clients, client)
 }
 
 func (s *Subscribers) getAll() map[*Client]byte {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.clients
 }
 
 type Subscriptions struct {
+	mu sync.RWMutex
 	topics map[string]byte
 }
 
@@ -195,13 +220,19 @@ func newSubscriptions() *Subscriptions {
 }
 
 func (s *Subscriptions) add(topic string, maxQoS byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.topics[topic] = maxQoS
 }
 
 func (s *Subscriptions) remove(topic string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	delete(s.topics, topic)
 }
 
 func (s *Subscriptions) getAll() map[string]byte {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.topics
 }
