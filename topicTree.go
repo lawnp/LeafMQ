@@ -67,9 +67,14 @@ func (t *TopicTree) GetSubscribers(topic string) *Subscribers {
 	subscribers := newSubscribers()
 
 	node := t.root
-	for _, topicLevel := range topicLevels {
 
+	for i := 0; i < len(topicLevels); i++ {
+		topicLevel := topicLevels[i]
 		subscribers.addWildCardSubscribers(node)
+
+		if child, ok := node.children["+"]; ok {
+			getSingleLevelWildCardSubscribers(child, subscribers, topicLevels[i+1:])
+		}
 
 		childNode, ok := node.children[topicLevel]
 
@@ -94,6 +99,22 @@ func (s *Subscribers) addWildCardSubscribers(node *topicNode) {
 		for client, qos := range child.subscribers.getAll() {
 			s.add(client, qos)
 		}
+	}
+}
+
+func getSingleLevelWildCardSubscribers(node *topicNode, subscribers *Subscribers, topicLevels []string) {
+	for _, topicLevel := range topicLevels {
+		childNode, ok := node.children[topicLevel]
+
+		if !ok {
+			return
+		}
+
+		node = childNode
+	}
+
+	for client, qos := range node.subscribers.getAll() {
+		subscribers.clients[client] = qos
 	}
 }
 
