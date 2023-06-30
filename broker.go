@@ -154,7 +154,7 @@ func (b *Broker) sendConnack(client *Client, code packets.Code, sesionPresent bo
 func (b *Broker) SendSubscribers(packet *packets.Packet) {
 	subscribers := b.Subscriptions.GetSubscribers(packet.PublishTopic)
 
-	for client, maxQoS := range subscribers {
+	for client, maxQoS := range subscribers.getAll() {
 		packet.SetRightQoS(maxQoS)
 		buf := packet.EncodePublish()
 

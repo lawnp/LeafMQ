@@ -62,18 +62,39 @@ func (t *TopicTree) removeTopicRecursive(topicLevels []string, node *topicNode, 
 	t.removeTopicRecursive(topicLevels[1:], childNode, client)
 }
 
-func (t *TopicTree) GetSubscribers(topic string) map[*Client]byte {
+func (t *TopicTree) GetSubscribers(topic string) *Subscribers {
 	topicLevels := splitTopic(topic)
+	subscribers := newSubscribers()
 
 	node := t.root
 	for _, topicLevel := range topicLevels {
+
+		subscribers.addWildCardSubscribers(node)
+
 		childNode, ok := node.children[topicLevel]
+
 		if !ok {
-			return nil
+			break
 		}
+
 		node = childNode
 	}
-	return node.subscribers.getAll()
+
+	subscribers.addWildCardSubscribers(node)
+
+	for client, qos := range node.subscribers.getAll() {
+		subscribers.clients[client] = qos
+	}
+	
+	return subscribers
+}
+
+func (s *Subscribers) addWildCardSubscribers(node *topicNode) {
+	if child, ok := node.children["#"]; ok {
+		for client, qos := range child.subscribers.getAll() {
+			s.add(client, qos)
+		}
+	}
 }
 
 func (t *TopicTree) GetAllTopics() []string {
