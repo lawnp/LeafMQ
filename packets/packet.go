@@ -6,31 +6,31 @@ import (
 )
 
 const (
-	RESERVED       byte = iota // 0
-	CONNECT                    // 1
-	CONNACK                    // 2
-	PUBLISH                    // 3
-	PUBACK                     // 4
-	PUBREC                     // 5
-	PUBREL                     // 6
-	PUBCOMP                    // 7
-	SUBSCRIBE                  // 8
-	SUBACK                     // 9
-	UNSUBSCRIBE                // 10
-	UNSUBACK                   // 11
-	PINGREQ                    // 12
-	PINGRES                   // 13
-	DISCONNECT                 // 14
-	AUTH                       // 15
+	RESERVED    byte = iota // 0
+	CONNECT                 // 1
+	CONNACK                 // 2
+	PUBLISH                 // 3
+	PUBACK                  // 4
+	PUBREC                  // 5
+	PUBREL                  // 6
+	PUBCOMP                 // 7
+	SUBSCRIBE               // 8
+	SUBACK                  // 9
+	UNSUBSCRIBE             // 10
+	UNSUBACK                // 11
+	PINGREQ                 // 12
+	PINGRES                 // 13
+	DISCONNECT              // 14
+	AUTH                    // 15
 )
 
 type Packet struct {
-	FixedHeader *FixedHeader
-	ConnectOptions *ConnectOptions
-	Subscriptions *Subscribtions
-	PublishTopic string
+	FixedHeader      *FixedHeader
+	ConnectOptions   *ConnectOptions
+	Subscriptions    *Subscriptions
+	PublishTopic     string
 	PacketIdentifier uint16
-	Payload []byte
+	Payload          []byte
 }
 
 // Copies only fixed header, as it is the only part that is needed
@@ -48,7 +48,7 @@ func (p *Packet) Copy() *Packet {
 func ParsePacket(fh *FixedHeader, conn net.Conn) (*Packet, error) {
 	packet := new(Packet)
 	packet.FixedHeader = fh
-	var err error	
+	var err error
 
 	buf := make([]byte, fh.RemainingLength)
 	_, err = conn.Read(buf)
@@ -69,7 +69,7 @@ func ParsePacket(fh *FixedHeader, conn net.Conn) (*Packet, error) {
 		err = packet.DecodePuback(buf)
 	case PUBREC:
 		err = packet.DecodePuback(buf)
-	case PUBREL: 
+	case PUBREL:
 		err = packet.DecodePuback(buf)
 	case PUBCOMP:
 		err = packet.DecodePuback(buf)
@@ -95,7 +95,7 @@ func EncodePingresp() []byte {
 // this is used when resending pending QoS 1 and 2 messages
 // needed because its unsure what type of packet it is
 // in the future this can be reimplemented to include all packet types
-func (p *Packet) Encode()[]byte {
+func (p *Packet) Encode() []byte {
 	switch p.FixedHeader.MessageType {
 	case PUBLISH:
 		return p.EncodePublish()
