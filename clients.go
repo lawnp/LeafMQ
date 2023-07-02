@@ -5,7 +5,7 @@ import (
 )
 
 type Clients struct {
-	mu 	 sync.RWMutex
+	mu       sync.RWMutex
 	internal map[string]*Client
 }
 

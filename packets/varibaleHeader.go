@@ -1,6 +1,6 @@
 package packets
 
-type VariableHeader struct {}
+type VariableHeader struct{}
 
 func DecodeVariableHeader(buffer []byte) *VariableHeader {
 	return &VariableHeader{}

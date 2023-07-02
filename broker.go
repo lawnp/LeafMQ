@@ -17,10 +17,10 @@ const (
 )
 
 type Broker struct {
-	listener      []*listener.Listener 	// listener for incoming connections
-	clients       *Clients				// map of connected clients
-	Subscriptions *TopicTree			// tree of topics and their subscribers
-	Log           *log.Logger			// logger for logging messages
+	listener      []*listener.Listener // listener for incoming connections
+	clients       *Clients             // map of connected clients
+	Subscriptions *TopicTree           // tree of topics and their subscribers
+	Log           *log.Logger          // logger for logging messages
 }
 
 // creates a new broker instance
@@ -176,7 +176,7 @@ func (b *Broker) InheritSession(client *Client) bool {
 		}
 
 		client.Session = oldClient.Session.ClonePendingPackets()
-		
+
 		for topic, qos := range oldClient.Session.Subscriptions.getAll() {
 			b.Subscriptions.Remove(topic, oldClient)
 			oldClient.Session.Subscriptions.remove(topic)
@@ -230,4 +230,3 @@ func (b *Broker) CleanUp(client *Client) {
 	// I think this is needed to ensure that the client is garbage collected
 	client.Broker = nil
 }
-

@@ -4,7 +4,7 @@ func (p *Packet) DecodePublish(buf []byte) error {
 	var n uint16
 	p.PublishTopic, n = DecodeUTF8String(buf)
 	if p.FixedHeader.Qos > 0 {
-		p.DecodePacketIdentifier(buf[n + 2:])
+		p.DecodePacketIdentifier(buf[n+2:])
 		n += 2
 	}
 	p.Payload = buf[n+2:]

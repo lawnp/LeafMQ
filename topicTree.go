@@ -85,7 +85,7 @@ func (t *TopicTree) GetSubscribers(topic string) *Subscribers {
 		subscribers.addMultiLevelWildCardSubscribers(node)
 
 		if child, ok := node.children["+"]; ok {
-			subscribers.addSingleLevelWildCardSubscribers(child, topicLevels[i + 1:])
+			subscribers.addSingleLevelWildCardSubscribers(child, topicLevels[i+1:])
 		}
 
 		childNode, ok := node.children[topicLevel]
@@ -98,11 +98,11 @@ func (t *TopicTree) GetSubscribers(topic string) *Subscribers {
 	}
 
 	subscribers.addMultiLevelWildCardSubscribers(node)
-	
+
 	for client, qos := range node.subscribers.getAll() {
 		subscribers.add(client, qos)
 	}
-	
+
 	return subscribers
 }
 
@@ -166,10 +166,10 @@ func (t *TopicTree) Retain(packet *packets.Packet) {
 }
 
 type topicNode struct {
-	mu sync.RWMutex
+	mu          sync.RWMutex
 	children    map[string]*topicNode // all child nodes
 	subscribers *Subscribers          // array of client ids that are subscribed to this topic level
-	retained	*packets.Packet       // retained message
+	retained    *packets.Packet       // retained message
 }
 
 func newTopicNode() *topicNode {
@@ -180,7 +180,7 @@ func newTopicNode() *topicNode {
 }
 
 type Subscribers struct {
-	mu sync.RWMutex
+	mu      sync.RWMutex
 	clients map[*Client]byte
 }
 
@@ -209,7 +209,7 @@ func (s *Subscribers) getAll() map[*Client]byte {
 }
 
 type Subscriptions struct {
-	mu sync.RWMutex
+	mu     sync.RWMutex
 	topics map[string]byte
 }
 

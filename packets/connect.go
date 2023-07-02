@@ -36,14 +36,14 @@ func (e *ErrWrongProtocolName) Error() string {
 	return "Wrong message type"
 }
 
-func DecodeConnect(buffer[] byte) (*ConnectOptions, error) {
-	
+func DecodeConnect(buffer []byte) (*ConnectOptions, error) {
+
 	if protocolName, _ := DecodeUTF8String(buffer[0:]); protocolName != "MQTT" {
 		return nil, &ErrWrongProtocolName{}
 	}
 
 	flagByte := buffer[7]
-	if flagByte & 0x1 != 0 {
+	if flagByte&0x1 != 0 {
 		return nil, &ErrWrongProtocolName{}
 	}
 

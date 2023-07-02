@@ -31,7 +31,7 @@ type Propreties struct {
 
 type Session struct {
 	PendingPackets map[uint16]*packets.Packet
-	Subscriptions *Subscriptions
+	Subscriptions  *Subscriptions
 }
 
 func NewSession() *Session {
@@ -229,7 +229,7 @@ func (c *Client) ValidateConnectionOptions() packets.Code {
 	if c.Propreties.ProtocolLevel != ProtocolVersion {
 		return packets.UNACCEPTABLE_PROTOCOL_VERSION
 	}
-	
+
 	// Maximum client identifier length is 23 as per [MQTT-3.1.3-5], however the Broker may allow longer clientID
 	// Current implementation allows clientID of length 64 as testing with EMQX bench tool surpasses 23 characters
 	if c.Propreties.ClientID == "" || len(c.Propreties.ClientID) > 64 {
@@ -255,8 +255,8 @@ func (c *Client) ResendPendingPackets() {
 // [MQTT-3.1.2-23]
 func (c *Client) RefreshKeepAlive() {
 	kp := c.Propreties.Keepalive
-	deadLine := time.Now().Add(time.Duration(kp + kp / 2) * time.Second) // [MQTT-3.1.2-24]
-	
+	deadLine := time.Now().Add(time.Duration(kp+kp/2) * time.Second) // [MQTT-3.1.2-24]
+
 	if kp != 0 {
 		c.Conn.SetDeadline(deadLine)
 	} else {

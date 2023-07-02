@@ -1,17 +1,16 @@
 package main
 
 import (
-	"os"
-	"os/signal"
-	"syscall"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/LanPavletic/nixMQ"
 	"github.com/LanPavletic/nixMQ/listener"
 )
-
 
 func main() {
 	// this is for profiling memory usage
