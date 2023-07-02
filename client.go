@@ -229,8 +229,10 @@ func (c *Client) ValidateConnectionOptions() packets.Code {
 	if c.Propreties.ProtocolLevel != ProtocolVersion {
 		return packets.UNACCEPTABLE_PROTOCOL_VERSION
 	}
-
-	if c.Propreties.ClientID == "" || len(c.Propreties.ClientID) > 23 {
+	
+	// Maximum client identifier length is 23 as per [MQTT-3.1.3-5], however the Broker may allow longer clientID
+	// Current implementation allows clientID of length 64 as testing with EMQX bench tool surpasses 23 characters
+	if c.Propreties.ClientID == "" || len(c.Propreties.ClientID) > 64 {
 		return packets.IDENTIFIER_REJECTED
 	}
 

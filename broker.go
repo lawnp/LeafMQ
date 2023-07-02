@@ -122,7 +122,6 @@ func (b *Broker) BindClient(conn net.Conn) {
 	}
 
 	b.CloseClient(client)
-	b.Log.Println("Client disconnected")
 }
 
 func (b *Broker) ReadConnect(client *Client) (*packets.Packet, error) {
@@ -136,13 +135,11 @@ func (b *Broker) ReadConnect(client *Client) (*packets.Packet, error) {
 	}
 
 	connect, err := packets.ParsePacket(fixedHeader, client.Conn)
-	b.Log.Println("Received CONNECT packet")
 	return connect, err
 }
 
 func (b *Broker) sendConnack(client *Client, code packets.Code, sesionPresent bool) {
 	connack := packets.NewConnack(code, sesionPresent)
-	b.Log.Println("Sending connack")
 	// TODO check if client is still connected
 	client.Send(connack.Encode())
 }
@@ -210,8 +207,6 @@ func (b *Broker) SubscribeClient(client *Client, packet *packets.Packet) {
 			retainedCopy.SetRightQoS(qos)
 			client.Send(retainedCopy.EncodePublish())
 		}
-
-		b.Log.Println("Client subscribed to topic:", topic)
 	}
 }
 
@@ -219,13 +214,10 @@ func (b *Broker) UnsubscribeClient(client *Client, packet *packets.Packet) {
 	for _, topic := range packet.Subscriptions.GetOrdered() {
 		b.Subscriptions.Remove(topic, client)
 		client.Session.Subscriptions.remove(topic)
-		b.Log.Println("Client unsubscribed from topic:", topic)
 	}
 }
 
 func (b *Broker) CloseClient(client *Client) {
-	b.Log.Println("Disconnecting client", client.Propreties.ClientID)
-
 	if client.Propreties.CleanSession {
 		// this needs testing if client memory is freed
 		b.CleanUp(client)
