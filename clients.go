@@ -2,6 +2,7 @@ package nixmq
 
 import (
 	"sync"
+	"sync/atomic"
 )
 
 type Clients struct {
@@ -16,13 +17,16 @@ func NewClients() *Clients {
 }
 
 func (c *Clients) Add(client *Client) {
-	if client.Propreties.ClientID == "" {
+	if client.Properties.ClientID == "" {
 		client.GenerateClientID()
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.internal[client.Propreties.ClientID] = client
+	c.internal[client.Properties.ClientID] = client
+
+	atomic.AddUint32(&client.Broker.Info.ClientConnected, 1)
+	atomic.AddUint32(&client.Broker.Info.Clients, 1)
 }
 
 func (c *Clients) Get(clientID string) (*Client, bool) {
@@ -35,7 +39,10 @@ func (c *Clients) Get(clientID string) (*Client, bool) {
 func (c *Clients) Remove(client *Client) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	delete(c.internal, client.Propreties.ClientID)
+	delete(c.internal, client.Properties.ClientID)
+	
+	atomic.AddUint32(&client.Broker.Info.ClientDisconnected, ^uint32(0)) // --
+	atomic.AddUint32(&client.Broker.Info.Clients, ^uint32(0)) // --
 }
 
 func (c *Clients) GetAll() map[string]*Client {

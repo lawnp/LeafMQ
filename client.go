@@ -3,20 +3,21 @@ package nixmq
 import (
 	"fmt"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/LanPavletic/nixMQ/packets"
 )
 
 type Client struct {
-	Propreties *Propreties
+	Properties *Properties
 	Conn       net.Conn
 	Session    *Session
 	isClosed   bool
 	Broker     *Broker
 }
 
-type Propreties struct {
+type Properties struct {
 	ProtocolLevel byte
 	ClientID      string
 	Username      string
@@ -69,19 +70,27 @@ func NewClient(conn net.Conn, broker *Broker) *Client {
 }
 
 func (c *Client) GenerateClientID() {
-	c.Propreties.ClientID = "PLACEHOLDER_FOR_GENERATED_CLIENT_ID"
+	c.Properties.ClientID = "PLACEHOLDER_FOR_GENERATED_CLIENT_ID"
 }
 
 func (c *Client) Send(buffer []byte) {
-	_, err := c.Conn.Write(buffer)
+	n, err := c.Conn.Write(buffer)
 	if err != nil {
 		c.Close()
 	}
+	c.Broker.Info.AddPacketSent(n)
 }
 
 func (c *Client) Close() {
 	c.isClosed = true
+	// todo add atomic
+	atomic.AddUint32(&c.Broker.Info.ClientDisconnected, 1)
+	atomic.AddUint32(&c.Broker.Info.ClientConnected, ^uint32(0)) // --
+
 	c.Conn.Close()
+	if c.Properties.CleanSession {
+		c.Broker.CleanUp(c)
+	}
 }
 
 func (c *Client) IsClosed() bool {
@@ -105,6 +114,7 @@ func (c *Client) ReadPackets() error {
 			return err
 		}
 
+		c.Broker.Info.AddPacketReceived(packet)
 		c.HandlePacket(packet)
 	}
 }
@@ -144,7 +154,7 @@ func (c *Client) HandleConnect(packet *packets.Packet) {
 }
 
 func (c *Client) HandleDisconnect(packet *packets.Packet) {
-	c.Close()
+	c.isClosed = true
 }
 
 func (c *Client) HandlePingreq(packet *packets.Packet) {
@@ -210,8 +220,8 @@ func (c *Client) HandlePubcomp(packet *packets.Packet) {
 	delete(c.Session.PendingPackets, packet.PacketIdentifier)
 }
 
-func (c *Client) SetClientPropreties(connectionOptions *packets.ConnectOptions) {
-	c.Propreties = &Propreties{
+func (c *Client) SetClientProperties(connectionOptions *packets.ConnectOptions) {
+	c.Properties = &Properties{
 		ProtocolLevel: connectionOptions.ProtocolLevel,
 		ClientID:      connectionOptions.ClientID,
 		Username:      connectionOptions.Username,
@@ -226,13 +236,13 @@ func (c *Client) SetClientPropreties(connectionOptions *packets.ConnectOptions) 
 }
 
 func (c *Client) ValidateConnectionOptions() packets.Code {
-	if c.Propreties.ProtocolLevel != ProtocolVersion {
+	if c.Properties.ProtocolLevel != ProtocolVersion {
 		return packets.UNACCEPTABLE_PROTOCOL_VERSION
 	}
 
 	// Maximum client identifier length is 23 as per [MQTT-3.1.3-5], however the Broker may allow longer clientID
 	// Current implementation allows clientID of length 64 as testing with EMQX bench tool surpasses 23 characters
-	if c.Propreties.ClientID == "" || len(c.Propreties.ClientID) > 64 {
+	if c.Properties.ClientID == "" || len(c.Properties.ClientID) > 64 {
 		return packets.IDENTIFIER_REJECTED
 	}
 
@@ -254,7 +264,7 @@ func (c *Client) ResendPendingPackets() {
 // and every time client sends a message
 // [MQTT-3.1.2-23]
 func (c *Client) RefreshKeepAlive() {
-	kp := c.Propreties.Keepalive
+	kp := c.Properties.Keepalive
 	deadLine := time.Now().Add(time.Duration(kp+kp/2) * time.Second) // [MQTT-3.1.2-24]
 
 	if kp != 0 {

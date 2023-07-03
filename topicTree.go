@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/LanPavletic/nixMQ/packets"
 )
@@ -22,12 +23,18 @@ func (t *TopicTree) Add(topic string, maxQoS byte, client *Client) *packets.Pack
 	topicLevels := splitTopic(topic)
 	node := t.getTopicNode(topicLevels, t.root)
 	node.subscribers.add(client, maxQoS)
+	
+	atomic.AddUint32(&client.Broker.Info.Subscriptions, 1)
 	return node.retained
 }
 
 func (t *TopicTree) Remove(topic string, client *Client) {
 	topicLevels := splitTopic(topic)
 	t.removeTopicRecursive(topicLevels, t.root, client)
+
+	// subtract 1 from the number of subscriptions
+	// as per: https://pkg.go.dev/sync/atomic#AddUint32
+	atomic.AddUint32(&client.Broker.Info.Subscriptions, ^uint32(0))
 }
 
 func splitTopic(topic string) []string {

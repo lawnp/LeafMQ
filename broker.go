@@ -21,6 +21,7 @@ type Broker struct {
 	clients       *Clients             // map of connected clients
 	Subscriptions *TopicTree           // tree of topics and their subscribers
 	Log           *log.Logger          // logger for logging messages
+	Info          *Info
 }
 
 // creates a new broker instance
@@ -29,6 +30,7 @@ func New() *Broker {
 		clients:       NewClients(),
 		Log:           initiateLog(),
 		Subscriptions: NewTopicTree(),
+		Info:          &Info{},
 	}
 }
 
@@ -79,6 +81,8 @@ func (b *Broker) handleCommands() {
 			for _, topic := range b.Subscriptions.GetAllTopics() {
 				b.Log.Println(topic)
 			}
+		case "info":
+			b.DisplayInfo()
 		}
 	}
 }
@@ -97,7 +101,7 @@ func (b *Broker) BindClient(conn net.Conn) {
 		return
 	}
 
-	client.SetClientPropreties(connectPacket.ConnectOptions)
+	client.SetClientProperties(connectPacket.ConnectOptions)
 
 	code := client.ValidateConnectionOptions()
 	sessionPresent := b.InheritSession(client)
@@ -120,8 +124,6 @@ func (b *Broker) BindClient(conn net.Conn) {
 	if err != nil {
 		b.Log.Println("Error Reading connections:", err)
 	}
-
-	b.CloseClient(client)
 }
 
 func (b *Broker) ReadConnect(client *Client) (*packets.Packet, error) {
@@ -135,6 +137,7 @@ func (b *Broker) ReadConnect(client *Client) (*packets.Packet, error) {
 	}
 
 	connect, err := packets.ParsePacket(fixedHeader, client.Conn)
+	b.Info.AddPacketReceived(connect)
 	return connect, err
 }
 
@@ -167,11 +170,11 @@ func (b *Broker) SendSubscribers(packet *packets.Packet) {
 // If the client's CleanSession flag is true, the old client is closed and the session is not inherited.
 // Returns true if session inheritance is successful, and false otherwise.
 func (b *Broker) InheritSession(client *Client) bool {
-	if oldClient, ok := b.clients.Get(client.Propreties.ClientID); ok {
+	if oldClient, ok := b.clients.Get(client.Properties.ClientID); ok {
 
 		// if clean session is true, we need to take over the session
-		if client.Propreties.CleanSession {
-			b.CloseClient(oldClient)
+		if client.Properties.CleanSession {
+			b.CleanUp(oldClient)
 			return false
 		}
 
@@ -185,8 +188,7 @@ func (b *Broker) InheritSession(client *Client) bool {
 			client.Session.Subscriptions.add(topic, qos)
 		}
 
-		b.CloseClient(oldClient)
-
+		b.CleanUp(oldClient)
 		return true
 	}
 
@@ -217,16 +219,22 @@ func (b *Broker) UnsubscribeClient(client *Client, packet *packets.Packet) {
 	}
 }
 
-func (b *Broker) CloseClient(client *Client) {
-	if client.Propreties.CleanSession {
-		// this needs testing if client memory is freed
-		b.CleanUp(client)
-	}
-}
-
 func (b *Broker) CleanUp(client *Client) {
 	b.clients.Remove(client)
+
 	b.Subscriptions.RemoveClientSubscriptions(client)
 	// I think this is needed to ensure that the client is garbage collected
 	client.Broker = nil
+}
+
+func (b *Broker) DisplayInfo() {
+	b.Log.Println("Broker Info:")
+	b.Log.Println("Bytes received:", b.Info.BytesReceived)
+	b.Log.Println("Bytes sent:", b.Info.BytesSent)
+	b.Log.Println("Packets received:", b.Info.PacketsReceived)
+	b.Log.Println("Packets sent:", b.Info.PacketsSent)
+	b.Log.Println("Subscriptions:", b.Info.Subscriptions)
+	b.Log.Println("Clients:", b.Info.Clients)
+	b.Log.Println("Connected clients:", b.Info.ClientConnected)
+	b.Log.Println("Disconnected clients:", b.Info.ClientDisconnected)
 }

@@ -30,6 +30,7 @@ type Packet struct {
 	Subscriptions    *Subscriptions
 	PublishTopic     string
 	PacketIdentifier uint16
+	Size			 uint32
 	Payload          []byte
 }
 
@@ -78,6 +79,8 @@ func ParsePacket(fh *FixedHeader, conn net.Conn) (*Packet, error) {
 	default:
 		fmt.Println("Unknown packet type: ", packet.FixedHeader.MessageType)
 	}
+
+	packet.Size = uint32(fh.RemainingLength) + 2
 
 	if err != nil {
 		panic(err)
