@@ -1,5 +1,9 @@
 package packets
 
+import (
+	"regexp"
+)
+
 type ErrInvalidFixedHeader struct{}
 type ErrInvalidQoS struct{}
 
@@ -53,14 +57,21 @@ func (p *Packet) DecodeUnsubscribe(buf []byte) error {
 	return nil
 }
 
-// TODO: cleanup this ugly ass code.
 func DecodeTopicsSubscribe(buf []byte) *Subscriptions {
+	var qos byte
+	var err error
+
 	l := len(buf)
 	topics := make(map[string]byte)
 	topicsOrdered := make([]string, 0)
 	for i := 0; i < l; {
 		topic, n := DecodeUTF8String(buf[i:])
-		qos, err := DecodeQoS(buf[i+int(n)+2])
+
+		if IsValidTopicFilter(topic) {
+			qos, err = DecodeQoS(buf[i+int(n)+2])
+		} else {
+			qos = 0x80
+		}
 
 		//  3 bytes because of 2 bytes for UTF8 string length and 1 byte for qos + length of topic
 		i += int(n) + 3
@@ -75,6 +86,11 @@ func DecodeTopicsSubscribe(buf []byte) *Subscriptions {
 		topics,
 		topicsOrdered,
 	}
+}
+
+func IsValidTopicFilter(topicFilter string) bool {
+	regex := regexp.MustCompile(`^(#|(\$?[a-zA-Z0-9_]+/)*(\+|\$?[a-zA-Z0-9_]+))$`)
+	return regex.MatchString(topicFilter)
 }
 
 func DecodeTopicsUnsubscribe(buf []byte) *Subscriptions {
@@ -102,8 +118,7 @@ func DecodeQoS(b byte) (byte, error) {
 
 func validFHSubscribe(fixedHeader *FixedHeader) bool {
 	// last four bits of first byte have to be set to 0010 [MQTT-3.8.1-1]
-	return fixedHeader.Qos == 1 &&
-		!fixedHeader.Dup && !fixedHeader.Retain
+	return fixedHeader.Qos == 1 && !fixedHeader.Dup && !fixedHeader.Retain
 }
 
 func (p *Packet) EncodeSuback() []byte {

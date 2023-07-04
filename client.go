@@ -3,6 +3,7 @@ package nixmq
 import (
 	"fmt"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,27 +32,40 @@ type Properties struct {
 }
 
 type Session struct {
+	mu sync.RWMutex
 	PendingPackets map[uint16]*packets.Packet
 	Subscriptions  *Subscriptions
 }
 
 func NewSession() *Session {
 	return &Session{
-		make(map[uint16]*packets.Packet),
-		newSubscriptions(),
+		PendingPackets: make(map[uint16]*packets.Packet),
+		Subscriptions: newSubscriptions(),
 	}
 }
 
 func (s *Session) Get(packetID uint16) (*packets.Packet, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	p, ok := s.PendingPackets[packetID]
 	return p, ok
 }
 
-func (s *Session) Remove(packetId uint16) {
-	delete(s.PendingPackets, packetId)
+func (c *Client) AddPendingPacket(packet *packets.Packet) {
+	c.Session.mu.Lock()
+	defer c.Session.mu.Unlock()
+	c.Session.PendingPackets[packet.PacketIdentifier] = packet
+}
+
+func (c *Client) RemovePendingPacket(packet *packets.Packet) {
+	c.Session.mu.Lock()
+	defer c.Session.mu.Unlock()
+	delete(c.Session.PendingPackets, packet.PacketIdentifier)
 }
 
 func (s *Session) ClonePendingPackets() *Session {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	c := NewSession()
 
 	for k, v := range s.PendingPackets {
@@ -59,6 +73,14 @@ func (s *Session) ClonePendingPackets() *Session {
 	}
 
 	return c
+}
+
+func (c *Client) ResendPendingPackets() {
+	c.Session.mu.RLock()
+	defer c.Session.mu.RUnlock()
+	for _, packet := range c.Session.PendingPackets {
+		c.Send(packet.Encode())
+	}
 }
 
 func NewClient(conn net.Conn, broker *Broker) *Client {
@@ -195,7 +217,7 @@ func (c *Client) HandlePublish(packet *packets.Packet) {
 }
 
 func (c *Client) HandlePuback(packet *packets.Packet) {
-	delete(c.Session.PendingPackets, packet.PacketIdentifier)
+	c.RemovePendingPacket(packet)
 }
 
 func (c *Client) HandlePubrec(packet *packets.Packet) {
@@ -212,7 +234,7 @@ func (c *Client) HandlePubrel(packet *packets.Packet) {
 	}
 
 	pubcomp := packets.BuildResp(packet, packets.PUBCOMP)
-	c.Session.Remove(packet.PacketIdentifier)
+	c.RemovePendingPacket(packet)
 	c.Send(pubcomp.EncodeResp())
 }
 
@@ -247,16 +269,6 @@ func (c *Client) ValidateConnectionOptions() packets.Code {
 	}
 
 	return packets.ACCEPTED
-}
-
-func (c *Client) AddPendingPacket(packet *packets.Packet) {
-	c.Session.PendingPackets[packet.PacketIdentifier] = packet
-}
-
-func (c *Client) ResendPendingPackets() {
-	for _, packet := range c.Session.PendingPackets {
-		c.Send(packet.Encode())
-	}
 }
 
 // RefreshKeepAlive refreshes deadline for connection

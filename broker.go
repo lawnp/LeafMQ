@@ -200,14 +200,17 @@ func (b *Broker) InheritSession(client *Client) bool {
 // If there is a retained message for a topic, it sends a copy to the client with the adjusted QoS.
 func (b *Broker) SubscribeClient(client *Client, packet *packets.Packet) {
 	for topic, qos := range packet.Subscriptions.GetAll() {
-		retained := b.Subscriptions.Add(topic, qos, client)
-		client.Session.Subscriptions.add(topic, qos)
+		// In case topic filter was invalid, we don't need to do anything
+		if qos != 0x80 {
+			retained := b.Subscriptions.Add(topic, qos, client)
+			client.Session.Subscriptions.add(topic, qos)
 
-		if retained != nil {
-			// needs to be copied because we might need to change the QoS
-			retainedCopy := retained.Copy()
-			retainedCopy.SetRightQoS(qos)
-			client.Send(retainedCopy.EncodePublish())
+			if retained != nil {
+				// needs to be copied because we might need to change the QoS
+				retainedCopy := retained.Copy()
+				retainedCopy.SetRightQoS(qos)
+				client.Send(retainedCopy.EncodePublish())
+			}
 		}
 	}
 }
