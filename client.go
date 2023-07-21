@@ -125,11 +125,11 @@ func (c *Client) ReadPackets() error {
 			return nil
 		}
 
-		c.RefreshKeepAlive()
 		fixedHeader, err := packets.DecodeFixedHeader(c.Conn)
 		if err != nil {
 			return err
 		}
+		c.RefreshKeepAlive()
 
 		packet, err := packets.ParsePacket(fixedHeader, c.Conn)
 		if err != nil {
@@ -284,4 +284,33 @@ func (c *Client) RefreshKeepAlive() {
 	} else {
 		c.Conn.SetDeadline(time.Time{})
 	}
+}
+
+func (c *Client) SendWill() {
+	if c.Properties.WillTopic == "" {
+		return
+	}
+
+	will := BuildWill(c.Properties)
+	c.Broker.SendSubscribers(will)
+}
+
+func BuildWill(properties *Properties) *packets.Packet {
+	will := new(packets.Packet)
+	will.FixedHeader = new(packets.FixedHeader)
+	will.FixedHeader.MessageType = packets.PUBLISH
+	will.FixedHeader.Qos = properties.WillQoS
+	will.FixedHeader.Retain = properties.WillRetain
+
+	// calculate remaining length
+	rl := 2 + len(properties.WillTopic) + len(properties.WillMessage)
+
+	if will.FixedHeader.Qos > 0 {
+		rl += 2
+	}
+
+	will.FixedHeader.RemainingLength = uint32(rl)
+	will.PublishTopic = properties.WillTopic
+	will.Payload = []byte(properties.WillMessage)
+	return will
 }

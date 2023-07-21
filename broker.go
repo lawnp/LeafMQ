@@ -123,6 +123,7 @@ func (b *Broker) BindClient(conn net.Conn) {
 
 	if err != nil {
 		b.Log.Println("Error Reading connections:", err)
+		client.SendWill()
 	}
 }
 
