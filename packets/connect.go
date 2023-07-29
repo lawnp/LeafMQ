@@ -31,23 +31,31 @@ func (co *ConnectOptions) Copy() *ConnectOptions {
 }
 
 type ErrWrongProtocolName struct{}
+type ErrWrongProtocolLevel struct{}
 
 func (e *ErrWrongProtocolName) Error() string {
-	return "Wrong message type"
+	return "Reserved bit of flag byte in CONNECT packet is not 0"
+}
+
+func (e *ErrWrongProtocolLevel) Error() string {
+	return "Wrong protocol level"
 }
 
 func DecodeConnect(buffer []byte) (*ConnectOptions, error) {
-
 	if protocolName, _ := DecodeUTF8String(buffer[0:]); protocolName != "MQTT" {
 		return nil, &ErrWrongProtocolName{}
 	}
-
-	flagByte := buffer[7]
-	if flagByte&0x1 != 0 {
+	
+	if buffer[6] != 0x04 {
+		return nil, &ErrWrongProtocolLevel{}
+	}
+	
+	connectFlags := buffer[7]
+	if connectFlags&0x1 != 0 {
 		return nil, &ErrWrongProtocolName{}
 	}
 
-	cf := DecodeConnectFlags(flagByte)
+	cf := DecodeConnectFlags(connectFlags)
 	cf.keepalive = uint16(buffer[8])<<8 | uint16(buffer[9])
 
 	co := DecodeConnectOptions(cf, buffer[10:])

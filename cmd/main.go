@@ -3,13 +3,13 @@ package main
 import (
 	"log"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
+	"crypto/tls"
 
 	"github.com/LanPavletic/nixMQ"
-	"github.com/LanPavletic/nixMQ/listener"
+	"github.com/LanPavletic/nixMQ/listeners"
 )
 
 func main() {
@@ -26,10 +26,23 @@ func main() {
 		<-sigs
 		done <- true
 	}()
-
+	
+	
 	broker := nixmq.New()
-	listener := listner.NewListener("127.0.0.1", "1883")
-	broker.AddListener(listener)
+
+	cert, err := tls.LoadX509KeyPair("/home/lan/faks/diploma/nixMQ/certs/server.crt", "/home/lan/faks/diploma/nixMQ/certs/server.key")
+	if err != nil {
+		panic(err)
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+
+	tcp := listeners.NewTCP("127.0.0.1", "1883")
+	tls := listeners.NewTLS("127.0.0.1", "8883", tlsConfig)
+	broker.AddListener(tcp)
+	broker.AddListener(tls)
 	broker.Start()
 
 	<-done

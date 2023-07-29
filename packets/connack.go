@@ -2,17 +2,17 @@ package packets
 
 type Connack struct {
 	FixedHeader   *FixedHeader
-	SesionPresent bool
+	SessionPresent bool
 	ReturnCode    Code
 }
 
-func NewConnack(code Code, SesionPresent bool) *Connack {
+func NewConnack(code Code, sessionPresent bool) *Connack {
 	return &Connack{
 		FixedHeader: &FixedHeader{
 			MessageType:     CONNACK,
 			RemainingLength: 2,
 		},
-		SesionPresent: false,
+		SessionPresent: sessionPresent,
 		ReturnCode:    code,
 	}
 }
@@ -23,7 +23,7 @@ func (cack *Connack) Encode() []byte {
 	buffer[1] = 0x2
 
 	// ugly but go is kinda stupid when it comes to booleans
-	if cack.SesionPresent {
+	if cack.SessionPresent {
 		buffer[2] = 0x1
 	} else {
 		buffer[2] = 0x0

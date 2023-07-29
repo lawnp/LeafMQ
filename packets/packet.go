@@ -81,10 +81,6 @@ func ParsePacket(fh *FixedHeader, conn net.Conn) (*Packet, error) {
 	}
 
 	packet.Size = uint32(fh.RemainingLength) + 2
-
-	if err != nil {
-		panic(err)
-	}
 	return packet, err
 }
 

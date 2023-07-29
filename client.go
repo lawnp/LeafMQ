@@ -85,6 +85,9 @@ func (c *Client) ResendPendingPackets() {
 
 func NewClient(conn net.Conn, broker *Broker) *Client {
 	return &Client{
+		Properties: &Properties{
+			CleanSession: false,
+		},
 		Conn:    conn,
 		Broker:  broker,
 		Session: NewSession(),
@@ -266,6 +269,13 @@ func (c *Client) ValidateConnectionOptions() packets.Code {
 	// Current implementation allows clientID of length 64 as testing with EMQX bench tool surpasses 23 characters
 	if c.Properties.ClientID == "" || len(c.Properties.ClientID) > 64 {
 		return packets.IDENTIFIER_REJECTED
+	}
+
+	un := c.Properties.Username
+	pw := c.Properties.Password
+
+	if correctPassword, ok := c.Broker.Users.Get(un); !ok || pw != correctPassword {
+		return packets.BAD_USERNAME_OR_PASSWORD
 	}
 
 	return packets.ACCEPTED

@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	listener "github.com/LanPavletic/nixMQ/listener"
+	"github.com/LanPavletic/nixMQ/listeners"
 	"github.com/LanPavletic/nixMQ/packets"
 )
 
@@ -17,11 +17,12 @@ const (
 )
 
 type Broker struct {
-	listener      []*listener.Listener // listener for incoming connections
+	listener      []listeners.Listener // listeners for incoming connections
 	clients       *Clients             // map of connected clients
 	Subscriptions *TopicTree           // tree of topics and their subscribers
 	Log           *log.Logger          // logger for logging messages
-	Info          *Info
+	Info          *Info                // Information about the broker (bytes sent, number of clients, etc.)
+	Users         *Users               // map of users and their passwords (unencrypted in memory)
 }
 
 // creates a new broker instance
@@ -31,6 +32,7 @@ func New() *Broker {
 		Log:           initiateLog(),
 		Subscriptions: NewTopicTree(),
 		Info:          &Info{},
+		Users:         NewUsers(),
 	}
 }
 
@@ -58,9 +60,21 @@ func initiateLog() *log.Logger {
 
 func (b *Broker) Start() {
 	b.Log.Println("Starting broker")
+	b.Users.PopulateUsers() // testing purposes only
+
+	errChan := make(chan error)
+
 	for _, l := range b.listener {
-		go l.Serve(b.BindClient)
+		go func(l listeners.Listener) {
+			errChan <- l.Serve(b.BindClient)
+		}(l)
 	}
+
+	go func() {
+		for err := range errChan {
+			b.Log.Println("Listener shut down:", err)
+		}
+	}()
 
 	go b.handleCommands()
 }
@@ -87,8 +101,8 @@ func (b *Broker) handleCommands() {
 	}
 }
 
-func (b *Broker) AddListener(listner *listener.Listener) {
-	b.listener = append(b.listener, listner)
+func (b *Broker) AddListener(listener listeners.Listener) {
+	b.listener = append(b.listener, listener)
 }
 
 func (b *Broker) BindClient(conn net.Conn) {
@@ -96,9 +110,14 @@ func (b *Broker) BindClient(conn net.Conn) {
 	defer client.Close()
 
 	connectPacket, err := b.ReadConnect(client)
-	if err != nil {
-		b.Log.Println("Error when trying to establish connection:", err)
-		return
+	switch err.(type) {
+		case nil:
+		case *packets.ErrWrongProtocolLevel:
+			b.sendConnack(client, packets.UNACCEPTABLE_PROTOCOL_VERSION, false)
+			return
+		case *packets.ErrWrongProtocolName:
+			b.Log.Println("Packet format error:", err)
+			return
 	}
 
 	client.SetClientProperties(connectPacket.ConnectOptions)
