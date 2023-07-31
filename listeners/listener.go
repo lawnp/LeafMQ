@@ -8,4 +8,5 @@ type BindFn func(net.Conn)
 
 type Listener interface {
 	Serve(BindFn) error
+	Close()
 }

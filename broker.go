@@ -17,7 +17,7 @@ const (
 )
 
 type Broker struct {
-	listener      []listeners.Listener // listeners for incoming connections
+	listeners     []listeners.Listener // listeners for incoming connections
 	clients       *Clients             // map of connected clients
 	Subscriptions *TopicTree           // tree of topics and their subscribers
 	Log           *log.Logger          // logger for logging messages
@@ -64,7 +64,7 @@ func (b *Broker) Start() {
 
 	errChan := make(chan error)
 
-	for _, l := range b.listener {
+	for _, l := range b.listeners {
 		go func(l listeners.Listener) {
 			errChan <- l.Serve(b.BindClient)
 		}(l)
@@ -102,7 +102,7 @@ func (b *Broker) handleCommands() {
 }
 
 func (b *Broker) AddListener(listener listeners.Listener) {
-	b.listener = append(b.listener, listener)
+	b.listeners = append(b.listeners, listener)
 }
 
 func (b *Broker) BindClient(conn net.Conn) {
@@ -111,13 +111,13 @@ func (b *Broker) BindClient(conn net.Conn) {
 
 	connectPacket, err := b.ReadConnect(client)
 	switch err.(type) {
-		case nil:
-		case *packets.ErrWrongProtocolLevel:
-			b.sendConnack(client, packets.UNACCEPTABLE_PROTOCOL_VERSION, false)
-			return
-		case *packets.ErrWrongProtocolName:
-			b.Log.Println("Packet format error:", err)
-			return
+	case nil:
+	case *packets.ErrWrongProtocolLevel:
+		b.sendConnack(client, packets.UNACCEPTABLE_PROTOCOL_VERSION, false)
+		return
+	case *packets.ErrWrongProtocolName:
+		b.Log.Println("Packet format error:", err)
+		return
 	}
 
 	client.SetClientProperties(connectPacket.ConnectOptions)
@@ -260,4 +260,14 @@ func (b *Broker) DisplayInfo() {
 	b.Log.Println("Clients:", b.Info.Clients)
 	b.Log.Println("Connected clients:", b.Info.ClientConnected)
 	b.Log.Println("Disconnected clients:", b.Info.ClientDisconnected)
+}
+
+func (b *Broker) CloseAllListeners() {
+	for _, listener := range b.listeners {
+		listener.Close()
+	}
+}
+func (b *Broker) Close() {
+	b.CloseAllListeners()
+	b.Log.Println("Closing broker")
 }

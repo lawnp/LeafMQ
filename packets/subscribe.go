@@ -89,7 +89,7 @@ func DecodeTopicsSubscribe(buf []byte) *Subscriptions {
 }
 
 func IsValidTopicFilter(topicFilter string) bool {
-	regex := regexp.MustCompile(`^(#|(\$?[a-zA-Z0-9_]+/)*(\+|\$?[a-zA-Z0-9_]+))$`)
+	regex := regexp.MustCompile(`^(?:(?:[A-Za-z0-9_+-]+\/)*[A-Za-z0-9_+-]+(?:\/\+)?|\+)$|^(?:[A-Za-z0-9_+-]+\/)*\#$`)
 	return regex.MatchString(topicFilter)
 }
 

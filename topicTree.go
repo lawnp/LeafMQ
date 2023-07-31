@@ -1,7 +1,6 @@
 package nixmq
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -23,7 +22,7 @@ func (t *TopicTree) Add(topic string, maxQoS byte, client *Client) *packets.Pack
 	topicLevels := splitTopic(topic)
 	node := t.getTopicNode(topicLevels, t.root)
 	node.subscribers.add(client, maxQoS)
-	
+
 	atomic.AddUint32(&client.Broker.Info.Subscriptions, 1)
 	return node.retained
 }
@@ -64,13 +63,16 @@ func (t *TopicTree) removeTopicRecursive(topicLevels []string, node *topicNode, 
 
 	if len(topicLevels) == 0 {
 		node.subscribers.remove(client)
+		// if there are no subscribers, no retained message and no children we can remove the node
+		if node.subscribers.Len() == 0 && node.retained == nil && len(node.children) == 0 {
+			node = nil
+		}
 		return
 	}
 
 	topicLevel := topicLevels[0]
 	childNode, ok := node.children[topicLevel]
 	if !ok {
-		fmt.Println("topic not found")
 		return
 	}
 	t.removeTopicRecursive(topicLevels[1:], childNode, client)
@@ -89,10 +91,10 @@ func (t *TopicTree) GetSubscribers(topic string) *Subscribers {
 		node.mu.RLock()
 		defer node.mu.RUnlock()
 
-		subscribers.addMultiLevelWildCardSubscribers(node)
+		subscribers.addMultiLevelWildCard(node)
 
 		if child, ok := node.children["+"]; ok {
-			subscribers.addSingleLevelWildCardSubscribers(child, topicLevels[i+1:])
+			subscribers.addSingleLevelWildCard(child, topicLevels[i+1:])
 		}
 
 		childNode, ok := node.children[topicLevel]
@@ -104,7 +106,7 @@ func (t *TopicTree) GetSubscribers(topic string) *Subscribers {
 		node = childNode
 	}
 
-	subscribers.addMultiLevelWildCardSubscribers(node)
+	subscribers.addMultiLevelWildCard(node)
 
 	for client, qos := range node.subscribers.getAll() {
 		subscribers.add(client, qos)
@@ -113,7 +115,7 @@ func (t *TopicTree) GetSubscribers(topic string) *Subscribers {
 	return subscribers
 }
 
-func (s *Subscribers) addMultiLevelWildCardSubscribers(node *topicNode) {
+func (s *Subscribers) addMultiLevelWildCard(node *topicNode) {
 	if child, ok := node.children["#"]; ok {
 		for client, qos := range child.subscribers.getAll() {
 			s.add(client, qos)
@@ -121,7 +123,7 @@ func (s *Subscribers) addMultiLevelWildCardSubscribers(node *topicNode) {
 	}
 }
 
-func (s *Subscribers) addSingleLevelWildCardSubscribers(node *topicNode, topicLevels []string) {
+func (s *Subscribers) addSingleLevelWildCard(node *topicNode, topicLevels []string) {
 	for _, topicLevel := range topicLevels {
 		childNode, ok := node.children[topicLevel]
 
@@ -213,6 +215,10 @@ func (s *Subscribers) getAll() map[*Client]byte {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.clients
+}
+
+func (s *Subscribers) Len() int {
+	return len(s.clients)
 }
 
 type Subscriptions struct {

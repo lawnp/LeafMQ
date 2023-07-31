@@ -7,10 +7,11 @@ import (
 type TcpListener struct {
 	address string
 	port    string
+	close   chan bool
 }
 
 func NewTCP(address string, port string) *TcpListener {
-	return &TcpListener{address, port}
+	return &TcpListener{address, port, make(chan bool)}
 }
 
 func (l *TcpListener) Serve(bind BindFn) error {
@@ -18,7 +19,11 @@ func (l *TcpListener) Serve(bind BindFn) error {
 	if err != nil {
 		return err
 	}
-	defer ln.Close()
+
+	go func() {
+		<-l.close
+		ln.Close()
+	}()
 
 	for {
 		conn, err := ln.Accept()
@@ -28,4 +33,8 @@ func (l *TcpListener) Serve(bind BindFn) error {
 
 		go bind(conn)
 	}
+}
+
+func (l *TcpListener) Close() {
+	l.close <- true
 }

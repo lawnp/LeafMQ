@@ -30,3 +30,6 @@ func (l *TlsListener) Serve(bind BindFn) error {
 		go bind(conn)
 	}
 }
+
+func (l *TlsListener) Close() {
+}
