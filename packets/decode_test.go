@@ -1,10 +1,10 @@
 package packets
 
 import (
-	"testing"
 	"bytes"
 	"reflect"
 	"strings"
+	"testing"
 )
 
 func TestDecodeUTF8String(t *testing.T) {
@@ -139,8 +139,8 @@ func TestEncodeUTF8String(t *testing.T) {
 			expectedResult: []byte{0x00, 0x0F, 0xE3, 0x81, 0x93, 0xE3, 0x82, 0x93, 0xE3, 0x81, 0xAB, 0xE3, 0x81, 0xA1, 0xE3, 0x81, 0xAF},
 		},
 		{
-			name:           "String with maximum length",
-			inputString:    strings.Repeat("a", 65535),
+			name:        "String with maximum length",
+			inputString: strings.Repeat("a", 65535),
 			// MAX LENGTH = 2^16 - 1 = 65535
 			expectedResult: finalBytes,
 		},

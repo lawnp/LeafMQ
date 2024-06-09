@@ -50,6 +50,3 @@ func TestTcpListener_Serve(t *testing.T) {
 	// Wait for a short time to allow the listener to close
 	time.Sleep(100 * time.Millisecond)
 }
-
-
-

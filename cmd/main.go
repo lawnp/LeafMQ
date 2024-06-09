@@ -25,7 +25,7 @@ func main() {
 		<-sigs
 		done <- true
 	}()
-	
+
 	broker := nixmq.New()
 
 	tcp := listeners.NewTCP("127.0.0.1", "1883")

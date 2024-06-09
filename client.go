@@ -32,7 +32,7 @@ type Properties struct {
 }
 
 type Session struct {
-	mu sync.RWMutex
+	mu             sync.RWMutex
 	PendingPackets map[uint16]*packets.Packet
 	Subscriptions  *Subscriptions
 }
@@ -40,7 +40,7 @@ type Session struct {
 func NewSession() *Session {
 	return &Session{
 		PendingPackets: make(map[uint16]*packets.Packet),
-		Subscriptions: newSubscriptions(),
+		Subscriptions:  newSubscriptions(),
 	}
 }
 

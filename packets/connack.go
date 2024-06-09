@@ -1,9 +1,9 @@
 package packets
 
 type Connack struct {
-	FixedHeader   *FixedHeader
+	FixedHeader    *FixedHeader
 	SessionPresent bool
-	ReturnCode    Code
+	ReturnCode     Code
 }
 
 func NewConnack(code Code, sessionPresent bool) *Connack {
@@ -13,7 +13,7 @@ func NewConnack(code Code, sessionPresent bool) *Connack {
 			RemainingLength: 2,
 		},
 		SessionPresent: sessionPresent,
-		ReturnCode:    code,
+		ReturnCode:     code,
 	}
 }
 

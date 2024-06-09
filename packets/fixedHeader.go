@@ -61,9 +61,9 @@ func DecodeFixedHeader(conn net.Conn) (*FixedHeader, error) {
 
 	fixedHeader := &FixedHeader{}
 	fixedHeader.MessageType = buf[0] >> 4
-	fixedHeader.Dup = buf[0] & 0x08 == 0x08
+	fixedHeader.Dup = buf[0]&0x08 == 0x08
 	fixedHeader.Qos = buf[0] & 0x06 >> 1
-	fixedHeader.Retain = buf[0] & 0x01 == 0x01
+	fixedHeader.Retain = buf[0]&0x01 == 0x01
 	fixedHeader.RemainingLength, err = decodeRemainingLength(conn)
 
 	if err != nil {

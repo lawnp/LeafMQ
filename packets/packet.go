@@ -30,7 +30,7 @@ type Packet struct {
 	Subscriptions    *Subscriptions
 	PublishTopic     string
 	PacketIdentifier uint16
-	Size			 uint32
+	Size             uint32
 	Payload          []byte
 }
 

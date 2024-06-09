@@ -40,9 +40,9 @@ func (c *Clients) Remove(client *Client) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.internal, client.Properties.ClientID)
-	
+
 	atomic.AddUint32(&client.Broker.Info.ClientDisconnected, ^uint32(0)) // --
-	atomic.AddUint32(&client.Broker.Info.Clients, ^uint32(0)) // --
+	atomic.AddUint32(&client.Broker.Info.Clients, ^uint32(0))            // --
 }
 
 func (c *Clients) GetAll() map[string]*Client {

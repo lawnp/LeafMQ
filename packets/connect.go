@@ -45,11 +45,11 @@ func DecodeConnect(buffer []byte) (*ConnectOptions, error) {
 	if protocolName, _ := DecodeUTF8String(buffer[0:]); protocolName != "MQTT" {
 		return nil, &ErrWrongProtocolName{}
 	}
-	
+
 	if buffer[6] != 0x04 {
 		return nil, &ErrWrongProtocolLevel{}
 	}
-	
+
 	connectFlags := buffer[7]
 	if connectFlags&0x1 != 0 {
 		return nil, &ErrWrongProtocolName{}
