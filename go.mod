@@ -1,3 +1,3 @@
-module github.com/LanPavletic/nixMQ
+module github.com/lawnp/nixMQ
 
-go 1.20
+go 1.22
