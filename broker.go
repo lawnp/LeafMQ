@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/LanPavletic/nixMQ/listeners"
-	"github.com/LanPavletic/nixMQ/packets"
+	"github.com/lawnp/nixMQ/listeners"
+	"github.com/lawnp/nixMQ/packets"
 )
 
 const (

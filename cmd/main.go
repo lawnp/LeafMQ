@@ -6,10 +6,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"crypto/tls"
 
-	"github.com/LanPavletic/nixMQ"
-	"github.com/LanPavletic/nixMQ/listeners"
+	"github.com/lawnp/nixMQ"
+	"github.com/lawnp/nixMQ/listeners"
 )
 
 func main() {
@@ -27,22 +26,10 @@ func main() {
 		done <- true
 	}()
 	
-	
 	broker := nixmq.New()
 
-	cert, err := tls.LoadX509KeyPair("/home/lan/faks/diploma/nixMQ/certs/server.crt", "/home/lan/faks/diploma/nixMQ/certs/server.key")
-	if err != nil {
-		panic(err)
-	}
-
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-	}
-
 	tcp := listeners.NewTCP("127.0.0.1", "1883")
-	tls := listeners.NewTLS("127.0.0.1", "8883", tlsConfig)
 	broker.AddListener(tcp)
-	broker.AddListener(tls)
 	broker.Start()
 
 	<-done

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/LanPavletic/nixMQ/packets"
+	"github.com/lawnp/nixMQ/packets"
 )
 
 type TopicTree struct {

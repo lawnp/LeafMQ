@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/LanPavletic/nixMQ/packets"
+	"github.com/lawnp/nixMQ/packets"
 )
 
 type Client struct {
