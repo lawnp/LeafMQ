@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/lawnp/nixMQ"
-	"github.com/lawnp/nixMQ/listeners"
+	"github.com/lawnp/leafMQ"
+	"github.com/lawnp/leafMQ/listeners"
 )
 
 func main() {

@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/lawnp/nixMQ/listeners"
-	"github.com/lawnp/nixMQ/packets"
+	"github.com/lawnp/leafMQ/listeners"
+	"github.com/lawnp/leafMQ/packets"
 )
 
 const (
@@ -44,18 +44,18 @@ func initiateLog() *log.Logger {
 	err := os.MkdirAll("logs", os.ModePerm)
 	if err != nil {
 		fmt.Println("Error creating logs directory:", err)
-		return log.New(os.Stdout, "nixMQ: ", log.LstdFlags)
+		return log.New(os.Stdout, "leafMQ: ", log.LstdFlags)
 	}
 
 	filePath := filepath.Join("logs", "broker.log")
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Println("Error opening log file:", err)
-		return log.New(os.Stdout, "nixMQ: ", log.LstdFlags)
+		return log.New(os.Stdout, "leafMQ: ", log.LstdFlags)
 	}
 
 	multiOut := io.MultiWriter(file, os.Stdout)
-	return log.New(multiOut, "nixMQ: ", log.LstdFlags)
+	return log.New(multiOut, "leafMQ: ", log.LstdFlags)
 }
 
 func (b *Broker) Start() {
