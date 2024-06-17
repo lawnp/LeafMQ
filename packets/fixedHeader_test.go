@@ -4,58 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"net"
 	"testing"
-	"time"
 )
 
-// MockConn is a mock implementation of the net.Conn interface.
-type MockConn struct {
-	ReadData []byte
-	ReadErr  error
-}
-
-func (c *MockConn) Read(buffer []byte) (int, error) {
-	if c.ReadErr != nil {
-		return 0, c.ReadErr
-	}
-
-	if len(c.ReadData) == 0 {
-		return 0, errors.New("EOF")
-	}
-
-	n := copy(buffer, c.ReadData)
-	c.ReadData = c.ReadData[n:]
-	return n, nil
-}
-
-func (c *MockConn) Write(buffer []byte) (int, error) {
-	return 0, nil
-}
-
-func (c *MockConn) Close() error {
-	return nil
-}
-
-func (c *MockConn) LocalAddr() net.Addr {
-	return nil
-}
-
-func (c *MockConn) RemoteAddr() net.Addr {
-	return nil
-}
-
-func (c *MockConn) SetDeadline(t time.Time) error {
-	return nil
-}
-
-func (c *MockConn) SetReadDeadline(t time.Time) error {
-	return nil
-}
-
-func (c *MockConn) SetWriteDeadline(t time.Time) error {
-	return nil
-}
 
 func TestDecodeRemainingLength(t *testing.T) {
 	tests := []struct {
@@ -104,8 +55,8 @@ func TestDecodeRemainingLength(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mockConn := &MockConn{ReadData: test.readData}
-			value, err := decodeRemainingLength(mockConn)
+			byteBuffer:= bytes.NewBuffer(test.readData)
+			value, err := decodeRemainingLength(byteBuffer)
 
 			if err != nil {
 				if test.expectedError == nil {

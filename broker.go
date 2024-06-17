@@ -147,7 +147,7 @@ func (b *Broker) BindClient(conn net.Conn) {
 }
 
 func (b *Broker) ReadConnect(client *Client) (*packets.Packet, error) {
-	fixedHeader, err := packets.DecodeFixedHeader(client.Conn)
+	fixedHeader, err := packets.DecodeFixedHeader(client.ConnByteReader)
 	if err != nil {
 		return nil, err
 	}

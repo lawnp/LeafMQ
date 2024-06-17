@@ -1,6 +1,7 @@
 package nixmq
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"sync"
@@ -13,6 +14,7 @@ import (
 type Client struct {
 	Properties *Properties
 	Conn       net.Conn
+	ConnByteReader *bufio.Reader
 	Session    *Session
 	isClosed   bool
 	Broker     *Broker
@@ -89,6 +91,7 @@ func NewClient(conn net.Conn, broker *Broker) *Client {
 			CleanSession: false,
 		},
 		Conn:    conn,
+		ConnByteReader: bufio.NewReader(conn),
 		Broker:  broker,
 		Session: NewSession(),
 	}
@@ -128,7 +131,7 @@ func (c *Client) ReadPackets() error {
 			return nil
 		}
 
-		fixedHeader, err := packets.DecodeFixedHeader(c.Conn)
+		fixedHeader, err := packets.DecodeFixedHeader(c.ConnByteReader)
 		if err != nil {
 			return err
 		}

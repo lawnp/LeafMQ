@@ -1,8 +1,9 @@
 package packets
 
 import (
+	"bufio"
 	"fmt"
-	"net"
+	"io"
 )
 
 type FixedHeader struct {
@@ -13,8 +14,8 @@ type FixedHeader struct {
 	RemainingLength uint32 // remaining length including data in the variable header and the payload.
 }
 
-func (fh *FixedHeader) Copy() *FixedHeader {
-	fixedHeader := *fh
+func (f *FixedHeader) Copy() *FixedHeader {
+	fixedHeader := *f
 	return &fixedHeader
 }
 
@@ -51,20 +52,19 @@ func (f *FixedHeader) encodeRemainingLength() []byte {
 	return buffer
 }
 
-func DecodeFixedHeader(conn net.Conn) (*FixedHeader, error) {
-	buf := make([]byte, 1)
-	_, err := conn.Read(buf)
+// Takes in a byteReader and returns decoded fixedHeader. Returns error if we can't read from the connection.
+func DecodeFixedHeader(byteReader *bufio.Reader) (*FixedHeader, error) {
+	byteBuf, err := byteReader.ReadByte()
 
 	if err != nil {
 		return nil, err
 	}
 
-	fixedHeader := &FixedHeader{}
-	fixedHeader.MessageType = buf[0] >> 4
-	fixedHeader.Dup = buf[0]&0x08 == 0x08
-	fixedHeader.Qos = buf[0] & 0x06 >> 1
-	fixedHeader.Retain = buf[0]&0x01 == 0x01
-	fixedHeader.RemainingLength, err = decodeRemainingLength(conn)
+	fixedHeader := new(FixedHeader)
+
+	decodeFirstByte(fixedHeader, byteBuf)
+
+	fixedHeader.RemainingLength, err = decodeRemainingLength(byteReader)
 
 	if err != nil {
 		return nil, err
@@ -72,15 +72,22 @@ func DecodeFixedHeader(conn net.Conn) (*FixedHeader, error) {
 	return fixedHeader, nil
 }
 
+func decodeFirstByte(fh *FixedHeader, b byte) {
+	fh.MessageType = b >> 4
+	fh.Dup = b&0x08 == 0x08
+	fh.Qos = b&0x06 >> 1
+	fh.Retain = b&0x01 == 0x01
+}
+
 // decodes the remaining length from the fixed header
-func decodeRemainingLength(conn net.Conn) (uint32, error) {
+func decodeRemainingLength(byteReader io.ByteReader) (uint32, error) {
 	var multiplier uint32 = 1
 	var value uint32 = 0
 	var encodedByte byte
 	var err error
 
 	for {
-		encodedByte, err = decodeByte(conn)
+		encodedByte, err = byteReader.ReadByte()
 		if err != nil {
 			return 0, err
 		}
@@ -96,12 +103,3 @@ func decodeRemainingLength(conn net.Conn) (uint32, error) {
 	return value, nil
 }
 
-func decodeByte(conn net.Conn) (byte, error) {
-	buf := make([]byte, 1)
-	_, err := conn.Read(buf)
-
-	if err != nil {
-		return 0, err
-	}
-	return buf[0], nil
-}
