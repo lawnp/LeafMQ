@@ -34,14 +34,15 @@ type Packet struct {
 	Payload          []byte
 }
 
-// Copies only fixed header, as it is the only part that is needed
+// Make a deep copy of a packet
 func (p *Packet) Copy() *Packet {
 	packet := new(Packet)
 	packet.FixedHeader = p.FixedHeader.Copy()
-	packet.ConnectOptions = p.ConnectOptions
-	packet.Subscriptions = p.Subscriptions
+	packet.ConnectOptions = p.ConnectOptions.Copy()
+	packet.Subscriptions = p.Subscriptions.Copy()
 	packet.PublishTopic = p.PublishTopic
 	packet.PacketIdentifier = p.PacketIdentifier
+	packet.Size = p.Size
 	packet.Payload = p.Payload
 	return packet
 }
