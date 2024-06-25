@@ -1,8 +1,8 @@
 package packets
 
 import (
+	"bufio"
 	"fmt"
-	"net"
 )
 
 const (
@@ -47,7 +47,7 @@ func (p *Packet) Copy() *Packet {
 	return packet
 }
 
-func ParsePacket(fh *FixedHeader, conn net.Conn) (*Packet, error) {
+func ParsePacket(fh *FixedHeader, conn *bufio.Reader) (*Packet, error) {
 	packet := new(Packet)
 	packet.FixedHeader = fh
 	var err error

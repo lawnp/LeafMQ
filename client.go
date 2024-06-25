@@ -137,7 +137,7 @@ func (c *Client) ReadPackets() error {
 		}
 		c.RefreshKeepAlive()
 
-		packet, err := packets.ParsePacket(fixedHeader, c.Conn)
+		packet, err := packets.ParsePacket(fixedHeader, c.ConnByteReader)
 		if err != nil {
 			return err
 		}

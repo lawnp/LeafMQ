@@ -156,7 +156,7 @@ func (b *Broker) ReadConnect(client *Client) (*packets.Packet, error) {
 		return nil, fmt.Errorf("expected CONNECT packet, got %v", fixedHeader.MessageType)
 	}
 
-	connect, err := packets.ParsePacket(fixedHeader, client.Conn)
+	connect, err := packets.ParsePacket(fixedHeader, client.ConnByteReader)
 	b.Info.AddPacketReceived(connect)
 	return connect, err
 }
