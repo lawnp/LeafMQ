@@ -1,36 +1,55 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"syscall"
+	"time"
 
-	"github.com/lawnp/leafMQ"
+	leafMQ "github.com/lawnp/leafMQ"
 	"github.com/lawnp/leafMQ/listeners"
 )
 
+var (
+	cpuProfile = flag.String("cpuprofile", "cpu.pprof", "file for cpu profile")
+)
+
 func main() {
-	// this is for profiling memory usage
-	// right now used for manually detecting memory leaks
+	// Start the HTTP server for pprof
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	sigs := make(chan os.Signal, 1)
-	done := make(chan bool, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigs
-		done <- true
-	}()
+	flag.Parse()
 
-	broker := nixmq.New()
+	f, err := os.Create("profiles/" + *cpuProfile)
+	if err != nil {
+		log.Fatal("could not create CPU profile file: ", err)
+	}
+	defer f.Close()
+
+	if err := pprof.StartCPUProfile(f); err != nil {
+		log.Fatal("could not start CPU profile: ", err)
+	}
+	defer pprof.StopCPUProfile()
+
+	// Signal handling
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	broker := leafMQ.New()
 
 	tcp := listeners.NewTCP("127.0.0.1", "1883")
 	broker.AddListener(tcp)
 	broker.Start()
 
-	<-done
+	select {
+	case <-sigs:
+	case <-time.After(30 * time.Second):
+		break
+	}
 }
