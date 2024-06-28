@@ -101,8 +101,9 @@ func (c *Client) GenerateClientID() {
 	c.Properties.ClientID = "PLACEHOLDER_FOR_GENERATED_CLIENT_ID"
 }
 
-func (c *Client) Send(buffer []byte) {
-	n, err := c.Conn.Write(buffer)
+func (c *Client) Send(packet []byte) {
+	buffer := net.Buffers{packet}
+	n, err := buffer.WriteTo(c.Conn) 
 	if err != nil {
 		c.Close()
 	}

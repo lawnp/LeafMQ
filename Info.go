@@ -22,7 +22,7 @@ func (i *Info) AddPacketReceived(packet *packets.Packet) {
 	atomic.AddUint64(&i.BytesReceived, uint64(packet.Size))
 }
 
-func (i *Info) AddPacketSent(n int) {
+func (i *Info) AddPacketSent(n int64) {
 	atomic.AddUint64(&i.PacketsSent, 1)
 	atomic.AddUint64(&i.BytesSent, uint64(n))
 }
