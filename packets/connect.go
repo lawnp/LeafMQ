@@ -1,5 +1,7 @@
 package packets
 
+import "fmt"
+
 const UTF8BytesLength = 2
 
 type ConnectFlags struct {
@@ -32,6 +34,9 @@ func (co *ConnectOptions) Copy() *ConnectOptions {
 
 type ErrWrongProtocolName struct{}
 type ErrWrongProtocolLevel struct{}
+type ErrMalformedPacket struct{
+	reason string
+}
 
 func (e *ErrWrongProtocolName) Error() string {
 	return "Reserved bit of flag byte in CONNECT packet is not 0"
@@ -41,25 +46,39 @@ func (e *ErrWrongProtocolLevel) Error() string {
 	return "Wrong protocol level"
 }
 
-func DecodeConnect(buffer []byte) (*ConnectOptions, error) {
-	if protocolName, _ := DecodeUTF8String(buffer[0:]); protocolName != "MQTT" {
-		return nil, &ErrWrongProtocolName{}
-	}
+func (e *ErrMalformedPacket) Error() string {
+	return fmt.Sprintf("Malformed packet: %s", e.reason)
+}
 
-	if buffer[6] != 0x04 {
+func DecodeConnect(buffer []byte) (*ConnectOptions, error) {
+	protocolName, len := DecodeUTF8String(buffer)
+	VersionPosition := len + 2 // 2 bytes for utf-8 len plus actual length
+	protocolVersion := buffer[VersionPosition]
+
+	switch protocolVersion {
+	case 0x03:
+		if protocolName != "MQIsdp" {
+			return nil, &ErrWrongProtocolName{}
+		}
+	case 0x04, 0x05:
+		if protocolName != "MQTT" {
+			return nil, &ErrWrongProtocolName{}
+		}
+	default:
 		return nil, &ErrWrongProtocolLevel{}
 	}
 
-	connectFlags := buffer[7]
+	// in version 3.1.1 the last bit of flag byte has to be set to 0. [MQTT-3.1.2-3]
+	connectFlags := buffer[VersionPosition + 1]
 	if connectFlags&0x1 != 0 {
-		return nil, &ErrWrongProtocolName{}
+		return nil, &ErrMalformedPacket{"The last bit of the byte 'flag' needs to be 0"}
 	}
 
 	cf := DecodeConnectFlags(connectFlags)
-	cf.keepalive = uint16(buffer[8])<<8 | uint16(buffer[9])
+	cf.keepalive = uint16(buffer[VersionPosition + 2])<<8 | uint16(buffer[VersionPosition + 3])
 
-	co := DecodeConnectOptions(cf, buffer[10:])
-	co.ProtocolLevel = buffer[6]
+	co := DecodeConnectOptions(cf, buffer[VersionPosition + 3:])
+	co.ProtocolLevel = protocolVersion
 	return co, nil
 }
 

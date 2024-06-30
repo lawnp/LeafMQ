@@ -16,23 +16,35 @@ const (
 	ProtocolVersion byte = 0x04
 )
 
+type Versions map[byte]struct{}
+
+func (s Versions) Contains(value byte) bool {
+	_, exists := s[value]
+	return exists
+}
+
 type Broker struct {
-	listeners     []listeners.Listener // listeners for incoming connections
-	clients       *Clients             // map of connected clients
-	Subscriptions *TopicTree           // tree of topics and their subscribers
-	Log           *log.Logger          // logger for logging messages
-	Info          *Info                // Information about the broker (bytes sent, number of clients, etc.)
-	Users         *Users               // map of users and their passwords (unencrypted in memory)
+	listeners        []listeners.Listener // listeners for incoming connections
+	clients          *Clients             // map of connected clients
+	Subscriptions    *TopicTree           // tree of topics and their subscribers
+	Log              *log.Logger          // logger for logging messages
+	Info             *Info                // Information about the broker (bytes sent, number of clients, etc.)
+	Users            *Users               // map of users and their passwords (unencrypted in memory)
+	ProtocolVersions *Versions
 }
 
 // creates a new broker instance
 func New() *Broker {
 	return &Broker{
-		clients:       NewClients(),
-		Log:           initiateLog(),
-		Subscriptions: NewTopicTree(),
-		Info:          &Info{},
-		Users:         NewUsers(),
+		clients:          NewClients(),
+		Log:              initiateLog(),
+		Subscriptions:    NewTopicTree(),
+		Info:             &Info{},
+		Users:            NewUsers(),
+		ProtocolVersions: &Versions{
+			0x3: struct{}{},
+			0x4: struct{}{},
+		},
 	}
 }
 
